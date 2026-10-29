@@ -91,9 +91,13 @@ Hidden objects (`HIDDEN`):
 ## Hidden motion: the dance
 
 - `startDance(rt, len)` makes every bird in the place dance in sync. That includes birds standing, walking, eating or perched, and an idle cleaner. Flying and floating birds don't join.
-- In the dance, the head bows a little and holds still. Only the rump goes round in circles (`DANCE_BEAT` circles a second).
-- The torso pivots about the base of the neck. The neck takes the inverse of the swing, and the head corrects what the body's uneven `scale` skews.
-- It was checked on every species: the beak direction varies by no more than about 3°.
+- The user's reference was a hand-drawn clip. In it the head is pinned in place, and the whole round body, legs included, is dragged through a big circle beside it: forward, up, back, down.
+- The circle is about half the body's size (`.85R` forward/back by `.65R` up/down), at `DANCE_BEAT` circles a second.
+- The bow is fixed. The body never tilts; it only moves.
+- `dancePose` moves `hips`, then moves the neck back so the head lands exactly where it was.
+- Standing birds' legs stretch and squash so their feet stay on the ground. The down swing is capped at 65% of leg length.
+- It was checked on all 26 species: the head moves 0 cm and turns 0°.
+- Don't swap this back for a torso tilt or rump wiggle; the user rejected that.
 - While `B.dance > 0`, a bird does nothing else. The pose resets cleanly afterwards.
 - For now it happens on its own, rarely: about once every three minutes when three or more birds are on the ground. It is meant to be tied to a hidden object later.
 

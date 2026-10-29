@@ -2185,35 +2185,38 @@ function applyPose(B){
   b.head.rotation.y = B.headYaw*(1 - f);
   b.head.position.z = b.large && B.hop ? (B.hop.p < .5 ? .05 : -.03) : b.head.position.z*.8;  // pigeon-style head bob
   if (B.dance > 0) dancePose(B);
-  else if (b.torso.userData.danced){ b.torso.userData.danced = false; b.torso.position.set(0, 0, 0); b.torso.rotation.y = 0; b.neck.rotation.set(b.neck.rotation.x, 0, 0); b.head.rotation.set(0, b.head.rotation.y, 0); }
+  else if (b.hips.userData.danced) endDancePose(b);
 }
-// ---------- hidden motion: the dance. The head bows a little and stays put while the rump goes round and round,
-// in time with every other dancing bird. The torso pivots about the base of the neck, so only the back end moves ----------
-const DANCE_BEAT = 1.7;  // rump circles per second
-const danceV = new THREE.Vector3(), danceRest = new THREE.Vector3();
-const danceQ = new THREE.Quaternion(), danceQ2 = new THREE.Quaternion(), danceHold = new THREE.Quaternion(), danceE = new THREE.Euler();
-function neckBase(b, rx, ry){
-  b.torso.position.set(0, 0, 0); b.torso.rotation.set(rx, ry, 0); b.torso.updateMatrix();
-  return danceV.copy(b.neck.position).applyMatrix4(b.torso.matrix);
-}
+// ---------- hidden motion: the dance. The head is pinned in place, bowed a little, while the whole body
+// (legs and all) is swung round in a big circle beside it: forward, up, back, down, in time with every other dancer.
+// The body moves; the head doesn't move or turn at all ----------
+const DANCE_BEAT = 1.5;  // body circles per second
+const danceHead = new THREE.Vector3();
 function dancePose(B){
-  const b = B.b, sp = b.sp, loaf = b.torso.userData.loaf;
+  const b = B.b, sp = b.sp, t = TPL[sp.tpl], hp = b.hips.position, ud = b.hips.userData;
+  if (!ud.danced){ ud.danced = true; ud.y0 = hp.y; ud.neck0 = b.neck.position.clone(); }
   // ease in and out over the first and last 0.4 s
   const e = Math.min(1, B.dance/.4, (B.danceLen - B.dance)/.4), ph = T0*DANCE_BEAT*Math.PI*2;
-  const base = (loaf ? 0 : sp.lean) + .12*e, pitch = .2*e*Math.sin(ph), yaw = .26*e*Math.cos(ph), bow = -sp.lean*.8 + .35*e;
-  // where the head points with the body still (the pose to hold)
-  b.head.rotation.set(0, 0, 0); b.neck.rotation.set(bow, 0, 0);
-  danceRest.copy(neckBase(b, base, 0));
-  b.root.updateMatrixWorld(true); b.head.getWorldQuaternion(danceHold);
-  b.torso.position.copy(danceRest).sub(neckBase(b, base + pitch, yaw));
-  // the neck takes the inverse of the torso's swing...
-  danceQ.setFromEuler(danceE.set(base, 0, 0)).multiply(danceQ2.setFromEuler(danceE.set(bow, 0, 0)));
-  b.neck.quaternion.copy(danceQ2.setFromEuler(b.torso.rotation).invert().multiply(danceQ));
-  // ...and the head mops up what the body's uneven stretch skews, so it holds its angle exactly
-  b.root.updateMatrixWorld(true); b.neck.getWorldQuaternion(danceQ2);
-  b.head.quaternion.copy(danceQ2.invert().multiply(danceHold));
-  b.legs.forEach(l => { l.rotation.x = 0; });
-  b.torso.userData.danced = true;
+  b.neck.rotation.x += .3*e;  // bow
+  b.head.rotation.y = 0;
+  // where the head sits with the body at rest: that's where it stays
+  hp.set(0, ud.y0, 0); b.neck.position.copy(ud.neck0);
+  b.root.updateMatrixWorld(true); b.neck.getWorldPosition(danceHead);
+  // the body's circle, about half the body's size: forward and down, up and back
+  const standing = b.legs[0].visible, legLen = sp.legLen || t.legLen;
+  let dy = .65*t.R*e*Math.sin(ph);
+  if (standing) dy = Math.max(dy, -legLen*.65);
+  hp.set(0, ud.y0 + dy, .85*t.R*e*Math.cos(ph));
+  // standing birds keep their feet on the ground: the legs stretch and squash with the body's height
+  if (standing) b.legs.forEach(l => { l.rotation.x = 0; l.scale.y = (ud.y0 + dy)/ud.y0; });
+  // put the neck (and so the head) back where it was
+  b.root.updateMatrixWorld(true); b.neck.position.copy(b.torso.worldToLocal(danceHead));
+}
+function endDancePose(b){
+  const ud = b.hips.userData;
+  b.hips.position.set(0, ud.y0, 0); b.neck.position.copy(ud.neck0);
+  b.legs.forEach(l => { l.scale.y = 1; });
+  ud.danced = false;
 }
 // every bird in the place that is standing, walking, eating or perched joins in; flying and floating birds don't
 function startDance(rt, len = 5){
