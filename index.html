@@ -284,6 +284,21 @@ const SPECIES = {
               tailUp:-.4, backTint:.6, bars:true, stripes:true, stripeLight:'#e6e1d8', eye:'#2a1f1a', scale:[1.15,.95,1.1], rarity:.35,
               hint:'어두운 숲이 조용해지면 통나무에 앉으러 와요.',
               colors:{head:'#b9b4aa',face:'#e2ddd3',neck:'#b9b4aa',breast:'#d9d3c7',body:'#cfc8bb',wing:'#8d867a',wingTip:'#4f4a42',beak:'#e8c24a',legs:'#d8d2c6'}},
+  // 바닷가 외딴섬
+  // black-tailed gull: darker grey back than the seagull, and a red-and-black tip on the yellow bill
+  tailgull:  {tpl:'large', name:'괭이갈매기', voice:'야옹', head:'round', beak:'wedge', beakLen:.3, beakTip:'#c4323a', feet:'web', legLen:.45, lean:.04, tailUp:-.35, backTint:.25, eye:'#e8c84a', pupil:true,
+              stripes:true, scale:[1.05,1,1.05], rarity:.9,
+              hint:'고양이처럼 야옹 하고 울며 섬 위를 맴돌아요.',
+              colors:{head:'#f4f5f8',face:'#f4f5f8',neck:'#f4f5f8',breast:'#eef0f4',body:'#eef0f4',wing:'#5c6272',wingTip:'#18191e',beak:'#f0c419',legs:'#efc21a'}},
+  // ancient murrelet: a chubby little auk, black cap, grey back, white belly, pale stubby bill
+  murrelet:  {tpl:'small', name:'바다쇠오리', voice:'삐익', beak:'cone', beakLen:.1, feet:'web', lean:.02, tailUp:-.2, tailLen:.6, backTint:.95, eye:'#121214', rarity:.6,
+              hint:'파도 사이에 둥둥 떠 있다가 코코넛 냄새를 맡고 올라와요.',
+              colors:{head:'#1e2024',face:'#25272c',neck:'#8a9099',breast:'#f3f3f1',body:'#f0f0ee',wing:'#5a6068',wingTip:'#2a2c30',beak:'#e6dcc4',legs:'#8a96a2'}},
+  // great cormorant: upright and dark with a bronze sheen, white cheek, yellow bill base, green eye
+  cormorant: {tpl:'large', name:'가마우지', voice:'꺽', head:'round', beak:'hook', beakLen:.3, beakTip:'#3a3a3e', feet:'web', legLen:.24, neckLen:.35, lean:-.05, tailUp:-.55, tailLen:1.3,
+              backTint:.8, capStart:.5, eye:'#2f8a5e', pupil:true, headScale:1.2, scale:[.85,1.05,.85], rarity:.4,
+              hint:'바다가 조용할 때 젖은 날개를 말리러 섬에 올라와요.',
+              colors:{head:'#1d1f24',face:'#f0eee6',neck:'#1d1f24',breast:'#22252b',body:'#2a2d33',wing:'#4a4636',wingTip:'#15161a',beak:'#e2b43a',legs:'#1a1a1e'}},
 };
 const PLACES = {
   yard:  {name:'베리 마당', cost:0,  food:'berry', species:['robin','sparrow','magpie','tit','wren','bullfinch'], desc:'작은 베리나무 한 그루에서 시작해요.',
@@ -297,7 +312,8 @@ const PLACES = {
   forest:{name:'어두운 숲', cost:160, food:'cone', species:['jay','woodpecker','uralowl','barnowl','owl'], desc:'소나무가 빽빽한 어둑한 숲속.',
           hint:'가운데 작은 소나무를 흔들어 솔방울을 떨어뜨려 보세요'},
   // coconuts land whole; hint2 is the second onboarding step, shown after the first drop until a coconut is cracked
-  island:{name:'바닷가 외딴섬', cost:240, food:'coconut', feederFood:'half', species:['seagull'], desc:'사방이 바다인 작은 모래섬. 야자나무 한 그루가 서 있어요.',
+  // the last and dearest place, after the dark forest
+  island:{name:'바닷가 외딴섬', cost:250, food:'coconut', feederFood:'half', species:['seagull','tailgull','murrelet','cormorant'], desc:'사방이 바다인 작은 모래섬. 야자나무 한 그루가 서 있어요.',
           hint:'야자나무를 톡 쳐서 코코넛을 떨어뜨려 보세요',
           hint2:'떨어진 코코넛을 톡 쳐서 반으로 쪼개 주세요'},
 };
@@ -1865,7 +1881,7 @@ function goRest(B, spot){
   B.dur = .5 + B.p0.distanceTo(B.p2)/3; B.t = 0; B.state = 'in';
 }
 // big, heavy fliers take the hop over an obstacle lazily; everyone else flits across
-const SLOW_FLIERS = new Set(['heron','seagull','falcon','owl','uralowl','barnowl']);
+const SLOW_FLIERS = new Set(['heron','seagull','tailgull','cormorant','falcon','owl','uralowl','barnowl']);
 // a short flight from where the bird is stuck to a clear patch of ground
 function skipTo(B, dest){
   const slow = SLOW_FLIERS.has(B.id), r = B.b.root;
