@@ -71,6 +71,9 @@ body{background:var(--void);color:var(--ink);font-family:var(--body);overflow:hi
 /* the dark forest: HUD text sitting directly on the scene turns light */
 body[data-place="forest"] .brand{color:#e8efe8}
 body[data-place="forest"] .stats,body[data-place="forest"] .hint{color:#a9b8ac}
+/* the island sits in a blue sea, so its HUD text turns light too */
+body[data-place="island"] .brand{color:#f4fbfc}
+body[data-place="island"] .stats{color:#e3f3f6}
 .clean{background:#efece5;border-color:#d4cfc4}
 .clean[hidden]{display:none!important}
 
@@ -209,7 +212,7 @@ const SPECIES = {
   bullfinch: {tpl:'small', name:'멋쟁이새', voice:'휘익', lean:.06, tailUp:-.15, backTint:.7,  eye:'#121214', hint:'베리나무가 많은 곳을 찾아다녀요.',
               colors:{head:'#1c1c22',face:'#e0605a',neck:'#8d8f99',breast:'#e0605a',body:'#dcd8dc',wing:'#3a3b44',wingTip:'#15151a',beak:'#1c1c22',legs:'#7d6a62'}},
   seagull:   {tpl:'large', name:'갈매기', voice:'끼룩', head:'round', beak:'wedge', beakLen:.3, feet:'web', legLen:.48, lean:.04, tailUp:-.35, backTint:.2, eye:'#2a1c22', stripes:true, scale:[1.1,1,1.1],
-              hint:'물가에 빵가루가 보이면 날아와요.',
+              hint:'섬에서 코코넛이 쪼개지면 바다를 건너 날아와요.',
               colors:{head:'#f3f5fa',face:'#f3f5fa',neck:'#f3f5fa',breast:'#eceef5',body:'#eceef5',wing:'#8b90a3',wingTip:'#1d1e24',beak:'#f1c21c',legs:'#efc21a'}},
   duck:      {tpl:'large', name:'청둥오리', voice:'꽥', head:'round', beak:'flat', beakLen:.26, feet:'web', legLen:.28, lean:.2, tailUp:-.35, backTint:.2, eye:'#16161a', scale:[1.15,.85,1.15],
               hint:'물가를 어슬렁거리다 빵가루를 찾아와요.',
@@ -285,7 +288,7 @@ const SPECIES = {
 const PLACES = {
   yard:  {name:'베리 마당', cost:0,  food:'berry', species:['robin','sparrow','magpie','tit','wren','bullfinch'], desc:'작은 베리나무 한 그루에서 시작해요.',
           hint:'나무를 톡 치거나, 꾹 누른 채 좌우로 흔들어 보세요'},
-  pond:  {name:'작은 물가', cost:25, food:'bread', species:['seagull','duck','duckf','spotbill','godwit','heron'], desc:'빵 바구니가 놓인 조용한 물가.',
+  pond:  {name:'작은 물가', cost:25, food:'bread', species:['duck','duckf','spotbill','godwit','heron'], desc:'빵 바구니가 놓인 조용한 물가.',
           hint:'빵 바구니를 톡톡 쳐서 빵가루를 던져 보세요'},
   plaza: {name:'광장 벤치', cost:60, food:'snack', species:['pigeon','crow','falcon'], desc:'과자 봉지가 놓인 낡은 벤치.',
           hint:'벤치 위 과자 봉지를 톡톡 쳐 보세요'},
@@ -293,12 +296,18 @@ const PLACES = {
           hint:'곡식 자루를 톡톡 쳐서 낟알을 흩뿌려 보세요'},
   forest:{name:'어두운 숲', cost:160, food:'cone', species:['jay','woodpecker','uralowl','barnowl','owl'], desc:'소나무가 빽빽한 어둑한 숲속.',
           hint:'가운데 작은 소나무를 흔들어 솔방울을 떨어뜨려 보세요'},
+  // coconuts land whole; hint2 is the second onboarding step, shown after the first drop until a coconut is cracked
+  island:{name:'바닷가 외딴섬', cost:240, food:'coconut', feederFood:'half', species:['seagull'], desc:'사방이 바다인 작은 모래섬. 야자나무 한 그루가 서 있어요.',
+          hint:'야자나무를 톡 쳐서 코코넛을 떨어뜨려 보세요',
+          hint2:'떨어진 코코넛을 톡 쳐서 반으로 쪼개 주세요'},
 };
-const PLACE_ORDER = ['yard','pond','plaza','river','forest'];
+const PLACE_ORDER = ['yard','pond','plaza','river','forest','island'];
 // per-place light and ground colour
 const ENV = {
   yard:{bg:0xf7f7f4}, pond:{bg:0xf7f7f4}, plaza:{bg:0xf7f7f4}, river:{bg:0xf4f7f6},
   forest:{bg:0x34423a, hemi:.62, ground:0x2b372f, sun:.58, shadow:.28},
+  // cam: the island is seen from further back so the sea shows all round it
+  island:{bg:0x2f78a8, ground:0xb8d4dc, cam:8.4},
 };
 // items are bought with feathers and placed one of each per place
 const ITEMS = {
@@ -319,6 +328,7 @@ const ITEM_SPOTS = {
   plaza: {perch:[2.35,-.45], feeder:[-1.25,2.25], house:[2.35,1.55], collector:[-2.4,-.45], cleaner:[1.2,2.3]},
   river: {perch:[-1.9,.9],  feeder:[.9,1.5],   house:[2.1,.7],   collector:[-2.2,0], cleaner:[1.6,1.5]},
   forest:{perch:[-1.6,1.4], feeder:[.9,1.6],   house:[-2.0,-.5], collector:[2.0,-.3], cleaner:[-.4,2.0]},
+  island:{perch:[-1.5,.9],  feeder:[1.0,1.3],   house:[1.5,-.9],  collector:[-1.6,-.7], cleaner:[.1,1.75]},
 };
 const ALL_SPECIES = PLACE_ORDER.flatMap(p => PLACES[p].species);
 const SMALL4 = ['robin','tit','wren','bullfinch'];  // the "작은 새 도감" achievement set
@@ -533,6 +543,8 @@ function applyEnv(pid){
   renderer.setClearColor(e.bg);
   hemi.intensity = e.hemi ?? .85; hemi.groundColor.set(e.ground ?? 0xd8d4cc);
   sun.intensity = e.sun ?? .75; ground.material.opacity = e.shadow ?? .13;
+  const was = ENV[document.body.dataset.place];
+  if (e.cam || was?.cam) camD = e.cam || 6.4;
   document.body.dataset.place = pid;
 }
 
@@ -562,7 +574,18 @@ const FOOD = {
   snack: {geo:solid(new THREE.BoxGeometry(.06, .035, .06), '#efc451', 81), r:.018},
   seed:  {geo:solid(new THREE.OctahedronGeometry(.03, 0).scale(1, .6, 1.4), '#e3c77e', 82), r:.018},
   cone:  {geo:solid(new THREE.ConeGeometry(.035, .085, 5).rotateX(Math.PI/2), '#8a5a33', 83), r:.035},
+  // a whole coconut can't be eaten; tapping it on the ground splits it into two halves
+  coconut:{geo:solid(new THREE.IcosahedronGeometry(.07, 0).scale(1, .92, 1), '#6e4a2c', 84, .012), r:.065},
+  half:  {geo:halfNutGeo(), r:.035},
 };
+// half a cracked coconut, cut face up: brown shell with white flesh on top
+function halfNutGeo(){
+  const shell = new THREE.SphereGeometry(.07, 7, 2, 0, Math.PI*2, 0, Math.PI/2).rotateX(Math.PI).translate(0, .035, 0).toNonIndexed();
+  const nShell = shell.attributes.position.count/3;
+  const flesh = new THREE.CircleGeometry(.06, 7).rotateX(-Math.PI/2).translate(0, .036, 0);
+  const brown = col('#6e4a2c'), white = col('#f4efe2');
+  return skin(merge([shell, flesh]), (c, x, y, z, f) => c.copy(f < nShell ? brown : white), 85);
+}
 
 // ---------- food sources (tap / shake to drop food) ----------
 function makeSource(rt, {x, z, s = 1, food, throwH, throwUp, build, slotPos}){
@@ -768,7 +791,53 @@ function buildForest(rt){
     for (const geo of pineGeo(1.6, .95)){ const m = mesh(geo); bg.add(m); src.hit.push(m); }
   }});
 }
-buildYard(RT.yard); buildPond(RT.pond); buildPlaza(RT.plaza); buildRiver(RT.river); buildForest(RT.forest);
+// ---------- 바닷가 외딴섬: a round sand island alone in the sea, with one leaning palm tree ----------
+const ISLAND_R = 2.6;
+const foamMat = new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:.5, depthWrite:false});
+function buildIsland(rt){
+  const g = rt.group;
+  rt.bound = ISLAND_R - .35;  // food and birds stay on the sand
+  // the sea: turquoise shallows round the island fading to deep blue
+  const sea = mesh(skin(shape(new THREE.RingGeometry(ISLAND_R - .2, 30, 18, 8).rotateX(-Math.PI/2), .5, 700),
+    (c,x,y,z) => c.set('#5bb8c9').lerp(col('#2f78a8'), ss(ISLAND_R, 10, Math.hypot(x, z))), 700));
+  flatten(sea.geometry); sea.position.y = -.07; sea.castShadow = false; g.add(sea);
+  const sand = mesh(skin(shape(new THREE.RingGeometry(.01, ISLAND_R, 16, 4).rotateX(-Math.PI/2), .08, 701),
+    (c,x,y,z) => c.set('#d9bf8a').lerp(col('#c2a26d'), ss(ISLAND_R - .7, ISLAND_R, Math.hypot(x, z))), 701));
+  flatten(sand.geometry); sand.position.y = .003; sand.castShadow = false; g.add(sand);
+  const shore = mesh(solid(new THREE.CylinderGeometry(ISLAND_R - .12, ISLAND_R + .25, .12, 16, 1, true).translate(0, -.057, 0), '#b39364', 702));
+  shore.castShadow = false; g.add(shore);
+  // two foam rings that swell out from the beach and fade, one after the other
+  rt.foam = [0, 1].map(() => {
+    const m = new THREE.Mesh(new THREE.RingGeometry(ISLAND_R + .1, ISLAND_R + .22, 16).rotateX(-Math.PI/2), foamMat.clone());
+    m.position.y = -.05; g.add(m); return m;
+  });
+  // birds bob on the sea around the island
+  for (const [x, z] of [[2.5,1.9],[-2.9,1.3],[3.2,-.6],[-1.7,-2.8]])
+    rt.specials.push({kind:'water', pos:new THREE.Vector3(x, -.07, z), yaw:Math.random()*6, occupant:null});
+  // the palm: a ringed trunk curving over, and drooping fronds
+  const segs = 6, pts = [];
+  for (let i = 0; i <= segs; i++) pts.push(new THREE.Vector3(.012*i*i, i*.27, 0));
+  const top = pts[segs], slotPos = [];
+  for (let i = 0; i < 5; i++){ const a = i*1.26; slotPos.push(new THREE.Vector3(top.x + Math.cos(a)*.11, top.y - .09, Math.sin(a)*.11)); }
+  makeSource(rt, {x:-.35, z:-.3, food:'coconut', throwH:.9, throwUp:.3, slotPos, build:(bg, src) => {
+    for (let i = 0; i < segs; i++){
+      const a = pts[i], b = pts[i + 1], r0 = .085 - i*.004;
+      const m = mesh(solid(new THREE.CylinderGeometry(r0 - .006, r0, a.distanceTo(b) + .02, 6), i % 2 ? '#86643f' : '#9a7650', 720 + i));
+      m.position.copy(a).add(b).multiplyScalar(.5); m.rotation.z = -Math.atan2(b.x - a.x, b.y - a.y);
+      bg.add(m); src.hit.push(m);
+    }
+    // each frond: an inner blade that rises a little, then an outer blade that droops
+    const blade = (len, w, hex, salt) => solid(new THREE.ConeGeometry(w, len, 4).translate(0, len/2, 0).scale(.2, 1, 1), hex, salt);
+    const inner = blade(.6, .15, '#4f9a45', 730), outer = blade(.55, .12, '#3f8139', 731);
+    for (let i = 0; i < 7; i++){
+      const f = new THREE.Group(); f.position.copy(top); f.rotation.y = i/7*Math.PI*2 + .3;
+      const a = mesh(inner); a.rotation.z = -1.2 - rnd(i*3)*.15; f.add(a);
+      const b = mesh(outer); b.position.set(0, .6, 0); b.rotation.z = -.75 - rnd(i*5)*.2; a.add(b);
+      bg.add(f); src.hit.push(a, b);
+    }
+  }});
+}
+buildYard(RT.yard); buildPond(RT.pond); buildPlaza(RT.plaza); buildRiver(RT.river); buildForest(RT.forest); buildIsland(RT.island);
 // footprints of the fixed scenery in each place [x, z, radius]
 for (const [pid, list] of Object.entries({
   yard:  [[0,0,.32]],
@@ -776,7 +845,8 @@ for (const [pid, list] of Object.entries({
   plaza: [[-.5,-.5,.27],[0,-.5,.27],[.5,-.5,.27],[-1.9,-1.4,.12]],
   river: [[-.5,.75,.32]],
   forest:[[0,0,.6],[1.3,.9,.2],[1.64,.79,.2],[.96,1.01,.2],[-1.4,1.0,.28]],
-})) for (const [x, z, r] of list) addObstacle(RT[pid], x, z, r);
+  island:[[-.35,-.3,.16]],
+}))for (const [x, z, r] of list) addObstacle(RT[pid], x, z, r);
 
 // ---------- items (bought with feathers) ----------
 const glassMat = new THREE.MeshStandardMaterial({color:0xfff4c8, transparent:true, opacity:.45, flatShading:true, roughness:.2, depthWrite:false});
@@ -796,7 +866,7 @@ function placeItem(pid, kind, pop){
   };
   if (kind === 'feeder'){
     const slotPos = [0,1,2,3,4,5].map(i => new THREE.Vector3(Math.cos(i*1.05)*.2, .66, Math.sin(i*1.05)*.2));
-    const src = makeSource(rt, {x, z, food:PLACES[pid].food, throwH:1.1, throwUp:1.3, slotPos, build:(g, s) => {
+    const src = makeSource(rt, {x, z, food:PLACES[pid].feederFood || PLACES[pid].food, throwH:1.1, throwUp:1.3, slotPos, build:(g, s) => {
       const post = mesh(solid(new THREE.CylinderGeometry(.035, .045, .6, 4).translate(0, .3, 0), '#7a5434', 200));
       const tray = mesh(solid(new THREE.CylinderGeometry(.3, .26, .05, 6).translate(0, .62, 0), '#a4774f', 201));
       const hopper = mesh(solid(new THREE.CylinderGeometry(.1, .12, .28, 5).translate(0, .78, 0), '#cfe6ee', 202));
@@ -1482,29 +1552,57 @@ function dropFood(src){
   const m = slot.item.mesh; rt.group.attach(m);
   slot.item = null; slot.regrow = 4 + Math.random()*5;
   const a = Math.random()*Math.PI*2, sp = src.throwH*(.4 + Math.random()*.6);
-  rt.food.push({mesh:m, state:'fall', r:FOOD[src.food].r*src.s, claimed:null,
+  rt.food.push({mesh:m, state:'fall', r:FOOD[src.food].r*src.s, claimed:null, whole:src.food === 'coconut', flat:src.food === 'half', ph:Math.random()*6,
     v:new THREE.Vector3(Math.cos(a)*sp, src.throwUp*(.7 + Math.random()*.6), Math.sin(a)*sp)});
   S.dropped++;
-  if (!S.tried[rt.id]){ S.tried[rt.id] = true; hideHint(); }
+  if (!S.tried[rt.id]){ S.tried[rt.id] = true; showHint(); }
   save(); checkAch(); updateHUD();
   return true;
 }
 function updateFood(rt, dt){
+  const lim = rt.bound || 3.4;
   for (const b of rt.food){
+    // an uncracked coconut gives a little hop now and then, asking to be tapped
+    if (b.whole && b.state === 'ground'){ b.mesh.position.y = b.r + Math.max(0, Math.sin(T0*4 + b.ph))**16*.035; continue; }
     if (b.state !== 'fall') continue;
     const p = b.mesh.position;
     b.v.y -= 9.8*dt; p.addScaledVector(b.v, dt);
-    b.mesh.rotation.x += b.v.z*dt*8; b.mesh.rotation.z -= b.v.x*dt*8;
-    const d = Math.hypot(p.x, p.z); if (d > 3.4){ p.x *= 3.4/d; p.z *= 3.4/d; b.v.x *= -.4; b.v.z *= -.4; }
+    if (!b.flat){ b.mesh.rotation.x += b.v.z*dt*8; b.mesh.rotation.z -= b.v.x*dt*8; }
+    const d = Math.hypot(p.x, p.z); if (d > lim){ p.x *= lim/d; p.z *= lim/d; b.v.x *= -.4; b.v.z *= -.4; }
     if (p.y <= b.r){
       p.y = b.r;
       if (b.v.y < -.7){ b.v.y *= -.35; b.v.x *= .6; b.v.z *= .6; }
-      else { b.state = 'ground'; b.v.set(0,0,0); pushOut(rt, p, b.r + .06); }
+      else {
+        b.state = 'ground'; b.v.set(0,0,0); pushOut(rt, p, b.r + .06);
+        if (b.flat) b.mesh.rotation.set(0, b.mesh.rotation.y, 0);  // coconut halves settle cut face up
+      }
     }
   }
 }
-const freeFood = rt => rt.food.filter(b => b.state === 'ground' && !b.claimed);
+const freeFood = rt => rt.food.filter(b => b.state === 'ground' && !b.claimed && !b.whole);
 function removeFood(rt, b){ b.state = 'gone'; rt.group.remove(b.mesh); rt.food = rt.food.filter(x => x !== b); }
+// tapping a fallen coconut splits it: two halves hop apart, cut face up, and birds can eat them
+function crackNut(rt, b){
+  const p = b.mesh.position.clone(), a = Math.random()*Math.PI*2;
+  removeFood(rt, b);
+  for (const s of [-1, 1]){
+    const m = mesh(FOOD.half.geo); m.position.set(p.x, FOOD.half.r + .02, p.z); m.rotation.y = a + s; rt.group.add(m);
+    rt.food.push({mesh:m, state:'fall', flat:true, r:FOOD.half.r, claimed:null, v:new THREE.Vector3(Math.cos(a)*s*.55, 1.3, Math.sin(a)*s*.55)});
+  }
+  if (!S.tried[rt.id + '2']){ S.tried[rt.id + '2'] = true; save(); showHint(); }
+}
+// screen-space pick for whole coconuts, which are too small to hit reliably with a ray
+const nutV = new THREE.Vector3();
+function nutNear(x, y){
+  let best = null, bd = 32*32;
+  for (const b of P.food){
+    if (!b.whole || b.state !== 'ground') continue;
+    nutV.copy(b.mesh.position).project(camera);
+    const dx = (nutV.x + 1)/2*innerWidth - x, dy = (1 - nutV.y)/2*innerHeight - y, d = dx*dx + dy*dy;
+    if (d < bd){ bd = d; best = b; }
+  }
+  return best;
+}
 
 // ======================================================================
 //  Poop: each drop leaves faint, soft grey ellipses. They overlap and build up
@@ -1746,7 +1844,7 @@ const REST = {
   loaf:  {stay:45, extra:35, feather:6, sit:'loaf'},
 };
 // chance that a fed bird picks one of the place's special resting spots instead of perches
-const SPECIAL_CHANCE = {pond:.10, plaza:.13, yard:.08, river:.10, forest:.12};
+const SPECIAL_CHANCE = {pond:.10, plaza:.13, yard:.08, river:.10, forest:.12, island:.14};
 function specialSpot(rt){
   if (Math.random() >= SPECIAL_CHANCE[rt.id]) return null;
   const f = rt.specials.filter(s => !s.occupant);
@@ -1892,7 +1990,12 @@ function updateBird(B, dt){
     }
   }
   // birds on the ground never stand inside trunks, benches or sacks
-  if (B.state === 'walk' || B.state === 'eat' || B.state === 'look') pushOut(rt, r.position, (B.b.large ? .16 : .1)*BK);
+  if (B.state === 'walk' || B.state === 'eat' || B.state === 'look'){
+    pushOut(rt, r.position, (B.b.large ? .16 : .1)*BK);
+    // on the island, nobody wanders off the sand into the sea
+    const d = Math.hypot(r.position.x, r.position.z), lim = rt.bound && rt.bound + .2;
+    if (lim && d > lim){ r.position.x *= lim/d; r.position.z *= lim/d; }
+  }
   B.wiggle = Math.max(0, (B.wiggle || 0) - dt);
   B.headYaw += (B.headGoal - B.headYaw)*Math.min(1, dt*8);
   if (B.state !== 'look' && B.state !== 'rest') B.headGoal = 0;
@@ -1925,6 +2028,8 @@ function pick(e){
   ndc.set(e.clientX/innerWidth*2 - 1, -(e.clientY/innerHeight)*2 + 1);
   ray.setFromCamera(ndc, camera);
   const birdHit = ray.intersectObjects(P.birds.map(B => B.b.root), true)[0];
+  const nut = nutNear(e.clientX, e.clientY);
+  if (nut) return {nut};
   if (birdHit) return {bird:birdHit.object.userData.agent};
   const srcHit = ray.intersectObjects(P.sources.flatMap(t => t.hit), false)[0];
   if (srcHit) return {src:srcHit.object.userData.src};
@@ -1938,6 +2043,7 @@ canvas.addEventListener('pointerdown', e => {
   // a drag that starts on a food source shakes it, one that starts on a feather sweeps feathers,
   // and one that starts anywhere else turns the view
   const h = pick(e), onFeather = !h && featherNear(e.clientX, e.clientY);
+  if (h?.nut){ crackNut(P, h.nut); drag = {moved:0}; return; }
   drag = {lastX:e.clientX, lastY:e.clientY, moved:0, src:h?.src, bird:h?.bird, sweep:onFeather, orbit:!h && !onFeather};
   if (onFeather) sweep(e.clientX, e.clientY);
 });
@@ -1996,7 +2102,12 @@ function updateHUD(){
   if ($('achSheet').classList.contains('open')) renderAch();
   if ($('dexSheet').classList.contains('open')) renderDex();
 }
-function showHint(){ $('hint').textContent = PLACES[cur].hint; $('hint').classList.toggle('gone', !!S.tried[cur]); }
+// a place with hint2 has a second onboarding step, shown once the first one is done
+function showHint(){
+  const pl = PLACES[cur], step2 = pl.hint2 && S.tried[cur] && !S.tried[cur + '2'];
+  $('hint').textContent = step2 ? pl.hint2 : pl.hint;
+  $('hint').classList.toggle('gone', !!S.tried[cur] && !step2);
+}
 function hideHint(){ $('hint').classList.add('gone'); }
 function toast(title, sub, isNew){
   const el = document.createElement('div'); el.className = 'toast' + (isNew ? ' new' : '');
@@ -2244,6 +2355,7 @@ function frame(){
     }
   }
   if (rt.ripples) for (const m of rt.ripples){ m.position.x += m.userData.v*dt; if (m.position.x > 5.5) m.position.x = -5.5; }
+  if (rt.foam) rt.foam.forEach((m, i) => { const k = (T0*.3 + i*.5) % 1; m.scale.setScalar(1 + k*.12); m.material.opacity = .55*(1 - k); });
   updateFood(rt, dt);
   updateDirt(rt, dt);
   updateCleaner(rt, dt);

@@ -39,7 +39,17 @@ The user alternates between two machines.
 
 ## Places and per-place decor
 
-Places, in order: `yard` 베리 마당, `pond` 작은 물가, `plaza` 광장 벤치, `river` 맑은 강가, `forest` 어두운 숲.
+Places, in order: `yard` 베리 마당, `pond` 작은 물가, `plaza` 광장 벤치, `river` 맑은 강가, `forest` 어두운 숲, `island` 바닷가 외딴섬.
+
+The island (`buildIsland`):
+- It is a round sand island (`ISLAND_R`) with sea all around and one leaning palm tree. Foam rings swell out from the beach. Birds can float on the sea.
+- `rt.bound` keeps food and birds on the sand.
+- `ENV.island.cam` pulls the camera back while you are there.
+- The palm drops whole coconuts that birds can't eat. The player taps a fallen coconut (`crackNut`, picked in screen space by `nutNear`) to split it into two edible halves. Uncracked coconuts hop now and then to invite a tap.
+- The feeder there drops ready halves (`feederFood:'half'`).
+- Onboarding has two steps: `hint`, then `hint2`, which shows after the first drop until the first crack (`S.tried['island2']`).
+- The seagull lives only on the island. It was removed from the pond.
+- No staged decor or hidden object yet.
 
 Each place grows decor in stages as shop items are placed there. The stage is the count of items in `S.items[pid]`, from 0 to 5.
 - yard: green ground, grass, flowers blooming one by one, butterflies from stage 3.
