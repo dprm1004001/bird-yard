@@ -2191,23 +2191,25 @@ function applyPose(B){
 // (legs and all) is swung round in a big circle out to its sides: left, up, right, down, in time with every other dancer.
 // The body moves; the head doesn't move or turn at all ----------
 const DANCE_BEAT = 1.5;  // body circles per second
-const DANCE_DROP = .14;  // how far the pinned head sits below its usual height, as a share of body height
-const danceHead = new THREE.Vector3(), danceScale = new THREE.Vector3();
+const DANCE_FWD = .16;  // how far forward of its usual place the pinned head sits, as a share of body height
+const danceHead = new THREE.Vector3();
 function dancePose(B){
   const b = B.b, sp = b.sp, t = TPL[sp.tpl], hp = b.hips.position, ud = b.hips.userData;
   if (!ud.danced){ ud.danced = true; ud.y0 = hp.y; ud.neck0 = b.neck.position.clone(); }
   // ease in and out over the first and last 0.4 s
   const e = Math.min(1, B.dance/.4, (B.danceLen - B.dance)/.4), ph = T0*DANCE_BEAT*Math.PI*2;
   b.head.rotation.y = 0;  // facing straight ahead, at its usual angle
-  // where the head sits with the body at rest, dropped a little lower: that's where it stays
+  // where the head sits with the body at rest, pushed a little forward (same height, same angle): that's where it stays
   hp.set(0, ud.y0, 0); b.neck.position.copy(ud.neck0);
-  b.root.updateMatrixWorld(true); b.neck.getWorldPosition(danceHead);
-  danceHead.y -= DANCE_DROP*t.H*e*b.hips.parent.getWorldScale(danceScale).y;
+  b.root.updateMatrixWorld(true);
+  const body = b.hips.parent;
+  b.neck.getWorldPosition(danceHead); body.worldToLocal(danceHead);
+  danceHead.z += DANCE_FWD*t.H*e; body.localToWorld(danceHead);
   // the body's circle, about half the body's size, swung out to the bird's sides: left, up, right, down
   const standing = b.legs[0].visible, legLen = sp.legLen || t.legLen;
-  let dy = .65*t.R*e*Math.sin(ph);
+  let dy = .53*t.R*e*Math.sin(ph);
   if (standing) dy = Math.max(dy, -legLen*.65);
-  hp.set(.85*t.R*e*Math.cos(ph), ud.y0 + dy, 0);
+  hp.set(.7*t.R*e*Math.cos(ph), ud.y0 + dy, 0);
   // standing birds keep their feet on the ground: the legs stretch and squash with the body's height
   if (standing) b.legs.forEach(l => { l.rotation.x = 0; l.scale.y = (ud.y0 + dy)/ud.y0; });
   // put the neck (and so the head) back where it was
