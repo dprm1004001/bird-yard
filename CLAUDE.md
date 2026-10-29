@@ -93,7 +93,9 @@ Hidden objects (`HIDDEN`):
 - `startDance(rt, len)` makes every bird in the place dance in sync. That includes birds standing, walking, eating or perched, and an idle cleaner. Flying and floating birds don't join.
 - The user's reference was a hand-drawn clip. In it the head is pinned in place, and the whole round body, legs included, is dragged through a big circle.
 - The circle goes **sideways**: left, up, right, down, seen from the front. A forward/back circle was tried and rejected.
-- The circle is `.7R` side to side by `.53R` up/down, at `DANCE_BEAT` circles a second. The user had it trimmed a little from `.85R` by `.65R`.
+- The circle's size is `DANCE_RADIUS` (.5) of the template's body radius side to side, and 3/4 of that up and down.
+- The user has asked twice for a smaller circle: .85 → .7 → .5. Only the circle shrinks; the body itself never changes size.
+- The speed is `DANCE_BEAT` (1.875) circles a second. The user asked for 1.25× the earlier 1.5.
 - The head faces straight ahead at its usual angle. Don't bow or tilt it; the user rejected that.
 - The head is pinned a little **forward** of its usual place, along the bird's front-back axis only: `DANCE_FWD` (.16) of the template's body height. Its height and angle stay exactly as normal; lowering it was rejected.
 - The body never tilts; it only moves.
