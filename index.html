@@ -1225,6 +1225,138 @@ const pondDecor = (() => {
     },
   };
 })();
+// ---------- 맑은 강가 decor: a cool valley, built up by the number of items placed there:
+//   1+ green grass on both banks · 2+ big boulders rise on the far bank · 3+ a little waterfall pours between them into a pool
+//   4+ moss on the rocks and ferns along the banks · 5 a rainbow in the waterfall's spray ----------
+const riverDecor = (() => {
+  const g = new THREE.Group(); RT.river.group.add(g);
+  const RZ = -1.0, RW = 1.0;                       // river centre line and half width (plus a little bank)
+  const FALL = {x:0, z:-2.55, top:1.0, len:1.05};  // waterfall lip, between the two rock stacks
+  const avoid = {obstacles:[{x:-.5, z:.75, r:.45}, {x:0, z:-2.05, r:.55}, ...Object.values(ITEM_SPOTS.river).map(([x, z]) => ({x, z, r:.38}))]};
+  const bankSpot = (i, salt) => {
+    for (let k = 0; k < 14; k++){
+      const a = rnd(i*12.9 + salt + k*3.3)*Math.PI*2, d = .4 + Math.sqrt(rnd(i*7.3 + salt*3 + k))*3.0;
+      const p = {x:Math.cos(a)*d, z:Math.sin(a)*d}; pushOut(avoid, p, .05);
+      if (Math.abs(p.z - RZ) > RW + .02) return p;
+    }
+    return {x:-2.4, z:1.4};
+  };
+  // ground: faceted disk tinted toward fresh valley green (the river is drawn over it)
+  const disk = new THREE.Mesh(shape(new THREE.RingGeometry(.01, 3.8, 16, 4).rotateX(-Math.PI/2), .18, 800), mat);
+  const dg = disk.geometry, n = dg.attributes.position.count, faceC = [];
+  flatten(dg);
+  const greens = ['#78c266','#69b65c','#8bcf76'].map(col), voidC = col('#f4f7f6');
+  for (let i = 0; i < n; i += 3) faceC.push(greens[Math.floor(rnd(i*2.3)*3)]);
+  dg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n*3), 3));
+  disk.position.y = .002; disk.receiveShadow = true; g.add(disk);
+  const tint = t => {
+    const c = new THREE.Color(), a = dg.attributes.color;
+    for (let i = 0; i < n; i++){ c.copy(voidC).lerp(faceC[Math.floor(i/3)], t); a.setXYZ(i, c.r, c.g, c.b); }
+    a.needsUpdate = true; disk.visible = t > 0;
+  };
+  const add = (list, obj, s, salt) => { obj.visible = false; g.add(obj); list.push({g:obj, s, grow:0, started:false, ph:rnd(salt)*6}); };
+  // grass tufts on both banks
+  const tuftGeo = skin(merge([[0,0,.14],[.03,.02,.1],[-.025,-.02,.11]].map(([x, z, h]) =>
+    new THREE.ConeGeometry(.025, h, 3).translate(x, h/2, z))), (c,x,y) => c.set('#4f9a4e').lerp(col('#9bd57a'), y/.14), 810);
+  const tufts = [];
+  for (let i = 0; i < 42; i++){ const p = bankSpot(i, 1), m = mesh(tuftGeo); m.castShadow = false; m.position.set(p.x, 0, p.z); m.rotation.y = rnd(i)*6; add(tufts, m, .8 + rnd(i*5)*.7, i); }
+  // big boulders: two stacks on the far bank with a gap for the waterfall, plus a few by the water.
+  // each sits in a group at ground level so it can pop up from the ground
+  const rockGeos = ['#99958c','#8b877f','#a7a297','#807c75'].map((h, i) => solid(new THREE.DodecahedronGeometry(1, 0), h, 820 + i, .14));
+  const ROCKS = [  // x, z, radius, height stretch
+    [-.78,-2.55,.62,1.55],[.8,-2.6,.64,1.6],[-1.45,-2.35,.46,1.05],[1.5,-2.4,.44,1.0],[-.55,-2.95,.5,1.9],[.55,-3.0,.5,1.95],
+    [-2.3,-2.2,.34,.8],[2.35,-2.15,.3,.75],[-1.2,-1.95,.2,.6],[1.15,-1.92,.18,.55],[2.6,-.05,.16,.6],[-2.8,-.15,.14,.55]];
+  const boulders = [];
+  ROCKS.forEach(([x, z, r, sy], i) => {
+    const holder = new THREE.Group(); holder.position.set(x, 0, z);
+    const m = mesh(rockGeos[i % 4]); m.scale.set(r, r*sy, r*.9); m.position.y = r*sy*.55; m.rotation.y = rnd(i*3.1)*6; holder.add(m);
+    add(boulders, holder, 1, i + 30);
+  });
+  // waterfall: a pale sheet hanging from the lip (its group origin), white streaks sliding down it,
+  // a round pool at its foot joining the river, and foam bobbing where it lands
+  const waterMat = mat.clone(); waterMat.side = THREE.DoubleSide;
+  const fall = new THREE.Group(); fall.position.set(FALL.x, FALL.top, FALL.z); fall.rotation.x = -.18;
+  const sheet = new THREE.Mesh(skin(shape(new THREE.PlaneGeometry(.4, FALL.len, 1, 4).translate(0, -FALL.len/2, 0)),
+    (c,x,y) => c.set('#d8f1fa').lerp(col('#8fcde8'), ss(0, -FALL.len, y)), 830), waterMat);
+  fall.add(sheet);
+  const streakMat = new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:.7, depthWrite:false});
+  const streakGeo = new THREE.PlaneGeometry(.035, .16), streaks = [];
+  for (let i = 0; i < 9; i++){
+    const s = new THREE.Mesh(streakGeo, streakMat); s.position.set(-.16 + (i % 5)*.08 + rnd(i)*.02, -rnd(i*3)*FALL.len, .012);
+    s.userData.v = .8 + rnd(i*7)*.5; fall.add(s); streaks.push(s);
+  }
+  const falls = []; add(falls, fall, 1, 60);
+  const pool = mesh(skin(shape(new THREE.CircleGeometry(.5, 9).rotateX(-Math.PI/2), .06, 831),
+    (c,x,y,z) => c.set('#8fcbe6').lerp(col('#a6d8ec'), ss(0, .5, Math.hypot(x, z))), 831));
+  flatten(pool.geometry); pool.castShadow = false; pool.position.set(0, .006, -2.05);
+  const pools = []; add(pools, pool, 1, 61);
+  const foamGeo = new THREE.IcosahedronGeometry(.06, 0), foamMat = new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:.85});
+  const foam = [];
+  for (let i = 0; i < 6; i++){
+    const f = new THREE.Mesh(foamGeo, foamMat), a = i*1.05;
+    f.position.set(Math.cos(a)*.13, .02, -2.3 + Math.sin(a)*.08); add(foam, f, .7 + rnd(i*4)*.6, i + 62);
+  }
+  // moss caps on the big rocks, and ferns fanning out along the banks and at the rocks' feet
+  const mossGeo = solid(new THREE.DodecahedronGeometry(1, 0).scale(1, .28, 1), '#6aa04f', 840, .12);
+  const moss = [];
+  ROCKS.slice(0, 8).forEach(([x, z, r, sy], i) => {
+    const m = mesh(mossGeo); m.position.set(x + (rnd(i)-.5)*r*.3, r*sy*1.38, z + (rnd(i*2)-.5)*r*.3); m.rotation.y = rnd(i*5)*6;
+    add(moss, m, r*.62, i + 70);
+  });
+  const fernBlade = solid(new THREE.ConeGeometry(.03, .17, 3).translate(0, .085, 0).scale(1, 1, .35), '#3f8a45', 841);
+  const fernSpots = [[-1.05,-1.85],[1.0,-1.82],[-1.9,-2.0],[1.95,-1.95],[-.3,-1.85],[.35,-1.86],
+                     ...Array.from({length:8}, (_, i) => bankSpot(i, 9)).map(p => [p.x, p.z])];
+  const ferns = [];
+  fernSpots.forEach(([x, z], i) => {
+    const f = new THREE.Group(); f.position.set(x, 0, z); f.rotation.y = rnd(i*7)*6;
+    for (let k = 0; k < 6; k++){ const b = mesh(fernBlade); b.rotation.set(.75 + rnd(i*3 + k)*.2, k*Math.PI/3, 0, 'YXZ'); f.add(b); }
+    add(ferns, f, .8 + rnd(i*6)*.5, i + 90);
+  });
+  // a soft rainbow arching through the spray in front of the waterfall
+  const rainbow = new THREE.Group(); rainbow.position.set(0, .05, -2.1);
+  ['#f49a9a','#f6d27a','#9fdc9a','#8fc3f0','#b9a2e8'].forEach((h, i) => {
+    const arc = new THREE.Mesh(new THREE.TorusGeometry(.78 - i*.05, .022, 3, 14, Math.PI),
+      new THREE.MeshBasicMaterial({color:h, transparent:true, opacity:.5, depthWrite:false}));
+    rainbow.add(arc);
+  });
+  const rainbows = []; add(rainbows, rainbow, 1, 99);
+  // pops each list up to n items: one at a time (gap seconds apart) or all at once
+  const grow = (list, n, dt, instant, gap, state) => {
+    state.t -= dt;
+    const next = list.find((o, i) => i < n && !o.started);
+    if (next && (instant || state.t <= 0)){ next.started = true; state.t = gap; }
+    list.forEach((o, i) => {
+      if (i >= n){ o.started = false; o.grow = 0; }
+      else if (instant){ o.started = true; o.grow = 1; }
+      else if (o.started) o.grow = Math.min(1, o.grow + dt*1.1);
+      o.g.visible = o.grow > 0;
+      const k = o.grow < 1 ? o.grow*(1 + Math.sin(o.grow*Math.PI)*.25) : 1;
+      o.g.scale.setScalar(Math.max(.001, k*o.s));
+    });
+    if (instant) list.forEach((o, i) => { if (i < n) o.started = true; });
+  };
+  const st = {tufts:{t:0}, boulders:{t:0}, falls:{t:0}, pools:{t:0}, foam:{t:0}, moss:{t:0}, ferns:{t:0}, rainbows:{t:0}};
+  let level = -1, t = 0;
+  return {
+    update(dt, instant){
+      t += dt;
+      const L = Math.min(5, (S.items.river || []).length);
+      if (L !== level){ level = L; tint(L ? .45 + .55*L/5 : 0); }
+      grow(tufts, Math.min(tufts.length, L*9), dt, instant, .12, st.tufts);
+      grow(boulders, L >= 2 ? boulders.length : 0, dt, instant, .25, st.boulders);
+      grow(pools, L >= 3 ? 1 : 0, dt, instant, 0, st.pools);
+      grow(falls, L >= 3 ? 1 : 0, dt, instant, 0, st.falls);
+      grow(foam, L >= 3 ? foam.length : 0, dt, instant, .2, st.foam);
+      grow(moss, L >= 4 ? moss.length : 0, dt, instant, .3, st.moss);
+      grow(ferns, L >= 4 ? ferns.length : 0, dt, instant, .2, st.ferns);
+      grow(rainbows, L >= 5 ? 1 : 0, dt, instant, 0, st.rainbows);
+      if (!falls[0].g.visible) return;
+      for (const s of streaks){ s.position.y -= s.userData.v*dt; if (s.position.y < -FALL.len + .08) s.position.y = -.05; }
+      foam.forEach((o, i) => { if (o.grow >= 1) o.g.scale.setScalar(o.s*(1 + Math.sin(t*5 + i*1.7)*.18)); });
+      rainbows[0].g.children.forEach(a => { a.material.opacity = .42 + Math.sin(t*.8)*.08; });
+    },
+  };
+})();
 // ---------- 광장 벤치 decor: a deliberately man-made, symmetric square, built up stage by stage ----------
 //   1 a matching lamppost · 2 a facing bench · 3 rectangular stone planters on both sides
 //   4 planters and clipped cube hedges framing the back · 5 a clock tower (showing the real time)
@@ -1545,6 +1677,7 @@ function updateHidden(rt, dt){
 const STAGE_TOAST = {
   plaza: L => ['', '가로등이 하나 더 켜졌어요', '마주 보는 벤치가 놓였어요', '양쪽에 네모난 꽃밭이 생겼어요', '꽃밭과 네모 울타리가 뒤편을 감쌌어요', '시계탑이 세워졌어요'][L],
   pond: L => ['', '물가에 풀이 돋고 돌이 놓였어요', '수련잎이 떠올랐어요', '바위에 분홍 들꽃이 피었어요', '물가가 한층 싱그러워졌어요', '연꽃이 피어나요'][L],
+  river: L => ['', '강가에 초록 풀이 돋아났어요', '커다란 바위들이 솟아올랐어요', '바위 사이로 작은 폭포가 흘러내려요', '바위에 이끼가 끼고 고사리가 자랐어요', '폭포 물보라에 무지개가 떴어요'][L],
 };
 function buyItem(kind){
   const it = ITEMS[kind], list = S.items[cur] ??= [];
@@ -2385,6 +2518,7 @@ function frame(){
   if (cur === 'yard') yardDecor.update(dt);
   if (cur === 'pond') pondDecor.update(dt);
   if (cur === 'plaza') plazaDecor.update(dt);
+  if (cur === 'river') riverDecor.update(dt);
   updateHidden(rt, dt);
   updateFeathers(rt, dt);
 
@@ -2411,7 +2545,7 @@ function frame(){
 // ---------- boot ----------
 for (const pid of PLACE_ORDER) for (const k of S.items[pid] || []) placeItem(pid, k, false);
 rippleMat.map = stainTex; rippleMat.needsUpdate = true;
-yardDecor.update(0, true); pondDecor.update(0, true); plazaDecor.update(0, true);
+yardDecor.update(0, true); pondDecor.update(0, true); plazaDecor.update(0, true); riverDecor.update(0, true);
 for (const pid in HIDDEN) if (S.hidden[pid]) placeHidden(pid, false);
 P.group.visible = true; applyEnv(cur);
 resetButton(); makePortraits(); showHint(); updateHUD(); resize(); frame();

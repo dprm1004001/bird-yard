@@ -58,7 +58,13 @@ Each place grows decor in stages as shop items are placed there. The stage is th
 - yard: green ground, grass, flowers blooming one by one, butterflies from stage 3.
 - pond: blue-green grass, a natural stone ring, lily pads, pink rock flowers, lotus at stage 5.
 - plaza: colour-only brick floor. Stages add a 2nd lamp, a facing bench, stone planters (short stems, big blooms), back planters with cube hedges, then a clock tower showing the real time. The layout is deliberately symmetric and man-made.
-- river and forest: **not decorated yet.** The user will direct each place one at a time, so don't decorate them unasked.
+- river (`riverDecor`) is a cool valley.
+  - 1+: green ground and grass on both banks.
+  - 2+: big boulders rise on the far bank, in two stacks with a gap.
+  - 3+: a small waterfall pours through the gap into a pool, with foam at its foot.
+  - 4+: moss caps on the rocks, and ferns.
+  - 5: a rainbow in the spray.
+- forest: **not decorated yet.** The user will direct it, so don't decorate it unasked.
 
 Shop items, one of each per place:
 - 횃대 (perch)
