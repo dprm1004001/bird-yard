@@ -2197,7 +2197,7 @@ function dancePose(B){
   if (!ud.danced){ ud.danced = true; ud.y0 = hp.y; ud.neck0 = b.neck.position.clone(); }
   // ease in and out over the first and last 0.4 s
   const e = Math.min(1, B.dance/.4, (B.danceLen - B.dance)/.4), ph = T0*DANCE_BEAT*Math.PI*2;
-  b.neck.rotation.x += .3*e;  // bow
+  b.neck.rotation.x += .45*e;  // bow
   b.head.rotation.y = 0;
   // where the head sits with the body at rest: that's where it stays
   hp.set(0, ud.y0, 0); b.neck.position.copy(ud.neck0);
