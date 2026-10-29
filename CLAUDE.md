@@ -64,7 +64,10 @@ Each place grows decor in stages as shop items are placed there. The stage is th
   - 3+: a small waterfall pours through the gap into a pool, with foam at its foot.
   - 4+: moss caps on the rocks, and ferns.
   - 5: a rainbow in the spray.
-- forest: **not decorated yet.** The user will direct it, so don't decorate it unasked.
+- forest (`forestDecor`):
+  - 1+: dim grass tufts.
+  - 2+: mushroom clusters at the stump, the log and the pines. Red caps have white dots. There are 6 more per item.
+  - 3+: fireflies, 5 more per item. Each is a yellow-green blinking light, a little smaller than a feather, that drifts about.
 
 Shop items, one of each per place:
 - 횃대 (perch)
