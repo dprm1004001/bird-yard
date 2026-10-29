@@ -91,8 +91,9 @@ Hidden objects (`HIDDEN`):
 ## Hidden motion: the dance
 
 - `startDance(rt, len)` makes every bird in the place dance in sync. That includes birds standing, walking, eating or perched, and an idle cleaner. Flying and floating birds don't join.
-- The user's reference was a hand-drawn clip. In it the head is pinned in place, and the whole round body, legs included, is dragged through a big circle beside it: forward, up, back, down.
-- The circle is about half the body's size (`.85R` forward/back by `.65R` up/down), at `DANCE_BEAT` circles a second.
+- The user's reference was a hand-drawn clip. In it the head is pinned in place, and the whole round body, legs included, is dragged through a big circle.
+- The circle goes **sideways**: left, up, right, down, seen from the front. A forward/back circle was tried and rejected.
+- The circle is about half the body's size (`.85R` side to side by `.65R` up/down), at `DANCE_BEAT` circles a second.
 - The bow is fixed. The body never tilts; it only moves.
 - `dancePose` moves `hips`, then moves the neck back so the head lands exactly where it was.
 - Standing birds' legs stretch and squash so their feet stay on the ground. The down swing is capped at 65% of leg length.

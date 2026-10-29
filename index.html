@@ -2188,7 +2188,7 @@ function applyPose(B){
   else if (b.hips.userData.danced) endDancePose(b);
 }
 // ---------- hidden motion: the dance. The head is pinned in place, bowed a little, while the whole body
-// (legs and all) is swung round in a big circle beside it: forward, up, back, down, in time with every other dancer.
+// (legs and all) is swung round in a big circle out to its sides: left, up, right, down, in time with every other dancer.
 // The body moves; the head doesn't move or turn at all ----------
 const DANCE_BEAT = 1.5;  // body circles per second
 const danceHead = new THREE.Vector3();
@@ -2202,11 +2202,11 @@ function dancePose(B){
   // where the head sits with the body at rest: that's where it stays
   hp.set(0, ud.y0, 0); b.neck.position.copy(ud.neck0);
   b.root.updateMatrixWorld(true); b.neck.getWorldPosition(danceHead);
-  // the body's circle, about half the body's size: forward and down, up and back
+  // the body's circle, about half the body's size, swung out to the bird's sides: left, up, right, down
   const standing = b.legs[0].visible, legLen = sp.legLen || t.legLen;
   let dy = .65*t.R*e*Math.sin(ph);
   if (standing) dy = Math.max(dy, -legLen*.65);
-  hp.set(0, ud.y0 + dy, .85*t.R*e*Math.cos(ph));
+  hp.set(.85*t.R*e*Math.cos(ph), ud.y0 + dy, 0);
   // standing birds keep their feet on the ground: the legs stretch and squash with the body's height
   if (standing) b.legs.forEach(l => { l.rotation.x = 0; l.scale.y = (ud.y0 + dy)/ud.y0; });
   // put the neck (and so the head) back where it was
