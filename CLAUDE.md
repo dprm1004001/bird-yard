@@ -52,7 +52,13 @@ The island (`buildIsland`):
 - Birds there, including the cleaner, are drawn at `ENV.island.birdScale` (.85). Steps and reach scale with them.
 - `tailBand` on a species gives a white tail with a black band mesh wrapped round it. 괭이갈매기 uses it.
 - Its birds are 갈매기 `seagull` (removed from the pond), 괭이갈매기 `tailgull`, 바다쇠오리 `murrelet` (small template) and 가마우지 `cormorant`.
-- No staged decor or hidden object yet.
+- Decor (`islandDecor`):
+  - 1+: a lime-green wash in the middle of the sand. The island's light bleaches pale colours, so mix colours deep there.
+  - 2+: rocks bobbing in the sea.
+  - 3+: scallop and cone shells.
+  - 4+: plumeria flowers.
+- `HIDDEN_ZONE.island` is the front of the island, facing the starting view. It is kept empty of decor and items for the island's future hidden object. The feeder and cleaner spots were moved out of it.
+- There is no hidden object yet.
 
 Each place grows decor in stages as shop items are placed there. The stage is the count of items in `S.items[pid]`, from 0 to 5.
 - yard: green ground, grass, flowers blooming one by one, butterflies from stage 3.
