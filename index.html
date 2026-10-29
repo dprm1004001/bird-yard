@@ -1,0 +1,2286 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="하얀 빈 마당에서 열매를 흔들어 하찮은 저폴리 새들을 불러 모으고 도감을 채우는 게임">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font:14px/1.5 system-ui,-apple-system,sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<title>베리 마당</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap" rel="stylesheet">
+<style>
+/* Layout: the whole screen is the white void (the game world); HUD floats in the corners, sheets slide over it.
+   Deliberately single-theme: the empty white space is the premise of the game. */
+:root{
+  --void:#f7f7f4; --ink:#2b2a27; --muted:#8a867e; --line:#e4e1d9; --card:#ffffff;
+  --berry:#d23a4f; --leaf:#4e8a4a; --gold:#e3a72f; --feather:#ffcf33;
+  --display:"Jua","Gowun Dodum",system-ui,sans-serif;
+  --body:"Gowun Dodum",system-ui,-apple-system,"Apple SD Gothic Neo",sans-serif;
+  color-scheme:light;
+}
+html,body{height:100%}
+body{background:var(--void);color:var(--ink);font-family:var(--body);overflow:hidden;-webkit-user-select:none;user-select:none}
+#world{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+#world.over-tree{cursor:pointer}
+
+.hud{position:fixed;z-index:5;display:flex;gap:8px;align-items:center}
+.hud.tl{top:calc(14px + env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));flex-direction:column;align-items:flex-start;gap:2px}
+.hud.tr{top:calc(14px + env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));flex-direction:column;align-items:flex-end}
+.hud.bottom{bottom:calc(16px + env(safe-area-inset-bottom,0px));left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));
+  flex-direction:column;align-items:stretch;gap:10px;pointer-events:none}
+.brow{display:flex;gap:8px;flex-wrap:wrap}
+.brow > *{pointer-events:auto}
+.brow:not(:has(:not([hidden]))){display:none}
+.nav-row{justify-content:space-between}
+.menu{justify-content:center;flex-wrap:nowrap}
+/* narrow screens: keep the four menu buttons on one row, sharing the width */
+@media (max-width:560px){
+  .menu{gap:6px}
+  .menu .pill{flex:1 1 0;min-width:0;justify-content:center;gap:3px;white-space:nowrap;
+    font-size:clamp(12px,3.6vw,15px);padding:7px clamp(4px,1.6vw,10px)}
+}
+.group{display:flex;gap:8px;flex-wrap:wrap}
+.brand{font-family:var(--display);font-size:26px;line-height:1.1;margin:0;font-weight:400}
+.stats{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pill{font:inherit;font-family:var(--display);font-size:16px;display:inline-flex;gap:6px;align-items:center;
+  padding:9px 16px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;
+  box-shadow:0 2px 0 var(--line)}
+.pill b{font-weight:400;color:var(--berry);font-variant-numeric:tabular-nums}
+/* a red dot on 상점 while a newly unlocked hidden object waits there */
+.pill.ping::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--berry);box-shadow:0 0 0 3px rgba(210,58,79,.2);animation:ping 1.2s ease-in-out infinite}
+@keyframes ping{50%{transform:scale(1.35)}}
+@media (prefers-reduced-motion: reduce){.pill.ping::after{animation:none}}
+.pill:active{transform:translateY(1px);box-shadow:none}
+.pill:focus-visible,.x:focus-visible,.ghost:focus-visible,.cam:focus-visible,.go:focus-visible{outline:2px solid var(--berry);outline-offset:2px}
+.feathers{cursor:default;font-size:18px;padding:7px 14px}
+.feathers b{color:var(--ink)}
+.feathers.bump{animation:bump .3s}
+@keyframes bump{50%{transform:scale(1.12)}}
+.orb{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff6c2,var(--feather) 55%,#e9a90f);
+  box-shadow:0 0 8px 3px rgba(255,207,51,.55);flex:none}
+.nav{font:inherit;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-size:16px;
+  box-shadow:0 2px 0 var(--line);flex:none}
+.nav:active{transform:translateY(1px);box-shadow:none}
+.nav:focus-visible{outline:2px solid var(--berry);outline-offset:2px}
+/* the dark forest: HUD text sitting directly on the scene turns light */
+body[data-place="forest"] .brand{color:#e8efe8}
+body[data-place="forest"] .stats,body[data-place="forest"] .hint{color:#a9b8ac}
+.clean{background:#efece5;border-color:#d4cfc4}
+.clean[hidden]{display:none!important}
+
+.hint{position:fixed;z-index:4;left:50%;bottom:calc(132px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  font-size:15px;color:var(--muted);text-align:center;width:max-content;max-width:calc(100% - 32px);transition:opacity .5s}
+.hint.gone{opacity:0}
+
+.toasts{position:fixed;z-index:8;top:calc(70px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:grid;gap:8px;justify-items:center;pointer-events:none;width:min(360px,calc(100% - 32px))}
+.toast{background:var(--ink);color:#fff;border-radius:12px;padding:10px 16px;text-align:center;animation:pop .35s ease-out}
+.toast strong{display:block;font-family:var(--display);font-weight:400;font-size:17px}
+.toast span{font-size:13px;opacity:.8}
+.toast.new strong{color:#ffd56a}
+@keyframes pop{from{transform:translateY(-8px) scale(.96);opacity:0}}
+
+.layer{position:fixed;inset:0;pointer-events:none;z-index:3;overflow:hidden}
+.flyorb{position:absolute;left:0;top:0;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#fff6c2,var(--feather) 55%,#e9a90f);box-shadow:0 0 10px 4px rgba(255,207,51,.6);
+  transition:transform .55s cubic-bezier(.5,-.3,.7,1),opacity .55s}
+
+.sheet{position:fixed;z-index:10;top:0;right:0;bottom:0;width:min(400px,100%);background:var(--card);border-left:1px solid var(--line);
+  transform:translateX(102%);transition:transform .28s ease;display:flex;flex-direction:column;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-right:env(safe-area-inset-right,0px)}
+.sheet.open{transform:none}
+@media (max-width:600px){
+  .sheet{top:auto;left:0;width:auto;height:72%;border-left:0;border-top:1px solid var(--line);border-radius:18px 18px 0 0;transform:translateY(102%);
+    padding-left:env(safe-area-inset-left,0px)}
+}
+.sheet header{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 8px}
+.sheet h2{font-family:var(--display);font-weight:400;font-size:22px;margin:0}
+.sheet .sub{color:var(--muted);font-size:13px;padding:0 16px 10px}
+.x{font:inherit;font-size:20px;line-height:1;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--card);cursor:pointer;color:var(--ink)}
+.scroll{overflow-y:auto;padding:4px 16px 20px;flex:1}
+
+.dexsec{font-family:var(--display);font-size:15px;color:var(--muted);margin:14px 0 8px}
+.dexsec:first-child{margin-top:0}
+.dex{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.card{border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;gap:4px;justify-items:center;text-align:center;background:var(--void)}
+.card img{width:100%;max-width:150px;aspect-ratio:1;object-fit:contain;border-radius:50%;background:radial-gradient(circle at 50% 55%,#e6e3db,rgba(230,227,219,0) 70%)}
+.card.locked img{filter:brightness(0);opacity:.18}
+.card .no{font-size:11px;color:var(--muted);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.card .nm{font-family:var(--display);font-size:18px}
+.card .meta{font-size:12px;color:var(--muted);min-height:2.6em}
+
+.list{display:grid;gap:10px}
+.row{border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:6px;background:var(--void)}
+.row.done{background:#fbf6e8;border-color:#ecd9a6}
+.row .top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.row .nm{font-family:var(--display);font-size:17px}
+.row .ct{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.row .ds{font-size:13px}
+.row .rw{font-size:12px;color:var(--muted)}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--leaf);border-radius:3px}
+.row.done .bar i{background:var(--gold)}
+.row.here{border-color:var(--ink)}
+.go{font:inherit;font-family:var(--display);font-size:15px;justify-self:start;display:inline-flex;gap:6px;align-items:center;
+  padding:7px 14px;border-radius:999px;border:1px solid var(--ink);background:var(--ink);color:#fff;cursor:pointer}
+.go.light{background:var(--card);color:var(--ink)}
+.go:disabled{opacity:.45;cursor:not-allowed}
+.reset{margin-top:18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.ghost{font:inherit;font-size:13px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.ghost.danger{border-color:var(--berry);color:var(--berry)}
+.qmark{font:inherit;font-family:var(--display);font-size:15px;width:30px;height:30px;border-radius:50%;border:1.5px solid var(--muted);
+  background:var(--card);color:var(--muted);cursor:pointer;line-height:1;padding:0}
+.qmark:focus-visible,.code:focus-visible{outline:2px solid var(--berry);outline-offset:2px}
+.code{font:inherit;font-size:16px;letter-spacing:.3em;width:120px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+@media (prefers-reduced-motion: reduce){.sheet,.hint{transition:none}.toast,.feathers.bump{animation:none}}
+</style>
+</head>
+<body>
+<canvas id="world" aria-label="새들이 찾아오는 하얀 마당"></canvas>
+<div class="layer" id="layer"></div>
+
+<div class="hud tl">
+  <h1 class="brand" id="placeName">베리 마당</h1>
+  <div class="stats" id="stats"></div>
+</div>
+<div class="hud tr">
+  <div class="pill feathers" id="featherPill" aria-label="깃털"><span class="orb"></span><b id="featherCount">0</b></div>
+</div>
+<!-- bottom stack, top to bottom: clean-up, place arrows, menu -->
+<div class="hud bottom">
+  <div class="brow"><button class="pill clean" id="cleanBtn" hidden>똥 치우기</button></div>
+  <div class="brow nav-row">
+    <button class="nav" id="prevPlace" aria-label="이전 장소">◀</button>
+    <button class="nav" id="nextPlace" aria-label="다음 장소">▶</button>
+  </div>
+  <div class="brow menu">
+    <button class="pill" id="openPlace">장소</button>
+    <button class="pill" id="openShop">상점</button>
+    <button class="pill" id="openDex">도감 <b id="dexCount">0/8</b></button>
+    <button class="pill" id="openAch">업적 <b id="achCount">0/5</b></button>
+  </div>
+</div>
+<p class="hint" id="hint"></p>
+<div class="toasts" id="toasts"></div>
+
+<aside class="sheet" id="placeSheet" aria-label="장소">
+  <header><h2>장소</h2><button class="x" data-close aria-label="닫기">×</button></header>
+  <div class="sub">깃털을 모아 새로운 장소를 열어요. 장소마다 찾아오는 새가 달라요.</div>
+  <div class="scroll"><div class="list" id="places"></div></div>
+</aside>
+<aside class="sheet" id="shopSheet" aria-label="상점">
+  <header><h2>상점</h2><button class="x" data-close aria-label="닫기">×</button></header>
+  <div class="sub">깃털로 산 아이템은 지금 있는 장소에 놓여요. 장소마다 하나씩 놓을 수 있어요.</div>
+  <div class="scroll"><div class="list" id="shop"></div></div>
+</aside>
+<aside class="sheet" id="dexSheet" aria-label="도감">
+  <header><h2>새 도감</h2><button class="x" data-close aria-label="닫기">×</button></header>
+  <div class="sub">내려앉은 새는 여기에 기록돼요.</div>
+  <div class="scroll" id="dex"></div>
+</aside>
+<aside class="sheet" id="achSheet" aria-label="업적">
+  <header><h2>업적</h2><button class="x" data-close aria-label="닫기">×</button></header>
+  <div class="sub">업적을 달성하면 베리 마당이 넓어지고, 새로운 새가 찾아와요.</div>
+  <div class="scroll">
+    <div class="list" id="ach"></div>
+    <div class="reset" id="reset"></div>
+  </div>
+</aside>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ======================================================================
+//  Species. Two shared mesh templates (small / large). Within a template
+//  every species reuses the same geometry buffers; only the 9-colour
+//  palette differs, plus a few part variants for the large birds.
+// ======================================================================
+const SPECIES = {
+  robin:     {tpl:'small', name:'울새',   voice:'삐릿',   lean:.1,  tailUp:-.05, backTint:.85, eye:'#121214', hint:'열매가 떨어지면 제일 먼저 와요.',
+              colors:{head:'#7d5d45',face:'#ec7a3c',neck:'#7d5d45',breast:'#ec7a3c',body:'#ece2d4',wing:'#7d5d45',wingTip:'#55402f',beak:'#3a2c24',legs:'#9b6b55'}},
+  tit:       {tpl:'small', name:'박새',   voice:'쯔삐',   lean:.08, tailUp:-.15, backTint:.85, eye:'#121214', hint:'누군가 열매를 먹고 가면 소문을 듣고 와요.',
+              colors:{head:'#1e2026',face:'#f4f3ee',neck:'#1e2026',breast:'#f0d43a',body:'#e2cd48',wing:'#5f7f92',wingTip:'#394a56',beak:'#1e2026',legs:'#6f7d8c'}},
+  wren:      {tpl:'small', name:'굴뚝새', voice:'찌르르', lean:.16, tailUp:.75,  backTint:.85, eye:'#121214', hint:'숨을 수 있는 덤불을 좋아해요.',
+              colors:{head:'#8a5a3b',face:'#b07a52',neck:'#8a5a3b',breast:'#b98559',body:'#a7744e',wing:'#7a4e33',wingTip:'#4f3222',beak:'#4a3324',legs:'#8a6650'}},
+  bullfinch: {tpl:'small', name:'멋쟁이새', voice:'휘익', lean:.06, tailUp:-.15, backTint:.7,  eye:'#121214', hint:'베리나무가 많은 곳을 찾아다녀요.',
+              colors:{head:'#1c1c22',face:'#e0605a',neck:'#8d8f99',breast:'#e0605a',body:'#dcd8dc',wing:'#3a3b44',wingTip:'#15151a',beak:'#1c1c22',legs:'#7d6a62'}},
+  seagull:   {tpl:'large', name:'갈매기', voice:'끼룩', head:'round', beak:'wedge', beakLen:.3, feet:'web', legLen:.48, lean:.04, tailUp:-.35, backTint:.2, eye:'#2a1c22', stripes:true, scale:[1.1,1,1.1],
+              hint:'물가에 빵가루가 보이면 날아와요.',
+              colors:{head:'#f3f5fa',face:'#f3f5fa',neck:'#f3f5fa',breast:'#eceef5',body:'#eceef5',wing:'#8b90a3',wingTip:'#1d1e24',beak:'#f1c21c',legs:'#efc21a'}},
+  duck:      {tpl:'large', name:'청둥오리', voice:'꽥', head:'round', beak:'flat', beakLen:.26, feet:'web', legLen:.28, lean:.2, tailUp:-.35, backTint:.2, eye:'#16161a', scale:[1.15,.85,1.15],
+              hint:'물가를 어슬렁거리다 빵가루를 찾아와요.',
+              colors:{head:'#1f6b3e',face:'#1f6b3e',neck:'#f2f2ee',breast:'#7a4b3a',body:'#9a8f86',wing:'#7d736c',wingTip:'#2e4fa0',beak:'#e9c23a',legs:'#ef8a2c'}},
+  pigeon:    {tpl:'large', name:'비둘기', voice:'구구', head:'point', beak:'cone', beakLen:.15, feet:'toes', legLen:.38, lean:.06, tailUp:-.35, backTint:.2, eye:'#c9473a', pupil:true, scale:[.95,1.05,.95],
+              hint:'벤치 근처 과자 부스러기를 노려요.',
+              colors:{head:'#6c717d',face:'#6c717d',neck:'#2c8c84',breast:'#e6e8ee',body:'#e6e8ee',wing:'#b4b9c6',wingTip:'#454a57',beak:'#8f969f',legs:'#e5674a'}},
+  crow:      {tpl:'large', name:'까마귀', voice:'까악', head:'point', beak:'cone', beakLen:.27, feet:'toes', legLen:.4, lean:.12, tailUp:-.35, backTint:.2, eye:'#0c0c10', scale:[.9,.95,.9],
+              hint:'광장에 먹을 게 많아지면 슬쩍 와요.',
+              colors:{head:'#2a2d36',face:'#2a2d36',neck:'#33364a',breast:'#2c2f39',body:'#2c2f39',wing:'#20232c',wingTip:'#111217',beak:'#1c1d22',legs:'#2b2b31'}},
+  // familiar birds
+  sparrow:   {tpl:'small', name:'참새', voice:'짹짹', lean:.1, tailUp:-.1, backTint:.85, eye:'#121214', stripes:true, stripeLight:'#e8dcc6',
+              hint:'처음부터 마당에 자주 놀러 와요.',
+              colors:{head:'#8a4f2f',face:'#f2ede4',neck:'#e9e1d4',breast:'#cbbfae',body:'#bfae96',wing:'#8a6345',wingTip:'#4a3326',beak:'#2a2622',legs:'#c8a487'}},
+  magpie:    {tpl:'large', name:'까치', voice:'깍깍', head:'round', beak:'cone', beakLen:.2, feet:'toes', legLen:.3, lean:.15, tailUp:-.2, tailLen:2.2, backTint:.95,
+              eye:'#121214', stripes:true, scale:[.75,.8,.75], rarity:.8,
+              hint:'반가운 손님처럼 마당에 불쑥 찾아와요.',
+              colors:{head:'#141418',face:'#141418',neck:'#141418',breast:'#141418',body:'#f4f4f2',wing:'#1d2a4a',wingTip:'#0f1220',beak:'#141418',legs:'#1c1c20'}},
+  duckf:     {tpl:'large', name:'청둥오리 암컷', voice:'꽥꽥', head:'round', beak:'flat', beakLen:.24, beakTip:'#5a3a22', feet:'web', legLen:.28, lean:.2, tailUp:-.35, backTint:.3, eye:'#16161a',
+              stripes:true, stripeLight:'#c4a582', scale:[1.1,.85,1.1],
+              hint:'수컷 청둥오리를 따라 물가에 와요.',
+              colors:{head:'#8a6a4c',face:'#b39070',neck:'#8a6a4c',breast:'#9c7a58',body:'#a5845f',wing:'#6e5640',wingTip:'#2e4fa0',beak:'#d9893a',legs:'#ef8a2c'}},
+  spotbill:  {tpl:'large', name:'흰뺨검둥오리', voice:'꽉', head:'round', beak:'flat', beakLen:.26, beakTip:'#f0c42a', feet:'web', legLen:.28, lean:.18, tailUp:-.35, backTint:.4, eye:'#16161a',
+              capStart:.55, scale:[1.1,.85,1.1],
+              hint:'우리 물가에서 가장 흔한 오리예요.',
+              colors:{head:'#3e3229',face:'#e3d6c2',neck:'#cbbba4',breast:'#8c7458',body:'#6e5a45',wing:'#4a3c30',wingTip:'#2b5fa0',beak:'#2a2a2a',legs:'#e9893a'}},
+  // rarity < 1 makes a species show up less often
+  godwit:    {tpl:'large', name:'큰뒷부리도요', voice:'삐잇', head:'round', beak:'needle', beakLen:.75, beakTilt:-.12, beakTip:'#2a2224', feet:'toes', legLen:.55, lean:.5, tailUp:-.2,
+              backTint:.5, eye:'#141414', stripes:true, stripeLight:'#e8dcc6', scale:[.85,.85,.95], rarity:.7,
+              hint:'물가에서 긴 부리로 빵가루를 콕콕 찾아요.',
+              colors:{head:'#b9a891',face:'#e9e2d4',neck:'#cdbfa8',breast:'#eee6d8',body:'#f2eee6',wing:'#8a7660',wingTip:'#3a2f25',beak:'#d98d95',legs:'#3e4148'}},
+  heron:     {tpl:'large', name:'왜가리', voice:'꽈악', head:'point', beak:'dagger', beakLen:.55, feet:'toes', legLen:.9, neckLen:.55, lean:.3, tailUp:-.3, backTint:.6, capStart:.62, plume:true,
+              eye:'#f2c21b', pupil:true, headScale:.9, scale:[.85,1.05,.9], rarity:.4,
+              hint:'물가가 조용할 때 가끔 성큼성큼 와요.',
+              colors:{head:'#25272e',face:'#f3f4f6',neck:'#e4e7ec',breast:'#eef0f3',body:'#c9cfd8',wing:'#9aa3b1',wingTip:'#3a3f4a',beak:'#e9b26a',legs:'#b89a7a'}},
+  falcon:    {tpl:'large', name:'송골매', voice:'끼야', head:'round', beak:'hook', beakLen:.14, feet:'toes', legLen:.3, lean:.12, tailUp:-.25, tailLen:1.5, backTint:.7, bars:true,
+              eye:'#f2c21b', pupil:true, rarity:.35,
+              hint:'광장 높은 곳에서 비둘기를 노리다 내려와요.',
+              colors:{head:'#2d3038',face:'#f1ece2',neck:'#2d3038',breast:'#efe8dc',body:'#ded6c8',wing:'#4c535f',wingTip:'#262a31',beak:'#3d4654',legs:'#f0c419'}},
+  owl:       {tpl:'large', name:'수리부엉이', voice:'부엉', head:'round', headScale:1.4, beak:'hook', beakLen:.09, ears:true, eyeScale:2.1, eyeAngle:.45, feet:'toes', legLen:.2, lean:-.02,
+              tailUp:-.4, backTint:.6, bars:true, stripes:true, stripeLight:'#d8b98a', eye:'#f08a1c', pupil:true, scale:[1.2,.95,1.15], rarity:.3,
+              hint:'어두운 숲 가장 깊은 곳에서만 모습을 드러내요.',
+              colors:{head:'#6b5440',face:'#a88a68',neck:'#6b5440',breast:'#b8986e',body:'#a4865f',wing:'#5e4632',wingTip:'#2f241a',beak:'#2a2622',legs:'#c9a874'}},
+  // 맑은 강가
+  kingfisher:{tpl:'small', name:'물총새', voice:'찌잇', beak:'dagger', beakLen:.2, lean:.12, tailUp:-.1, tailLen:.6, backTint:.9, eye:'#121214', rarity:.6,
+              hint:'강물 위를 쏜살같이 날다 낟알을 보면 내려와요.',
+              colors:{head:'#2f7fb0',face:'#e8874a',neck:'#2f7fb0',breast:'#e8874a',body:'#e07a3a',wing:'#2a6e9e',wingTip:'#1d4f73',beak:'#1e1e22',legs:'#e2603f'}},
+  wagtail:   {tpl:'small', name:'백할미새', voice:'찌찌', lean:.1, tailUp:-.05, tailLen:1.9, backTint:.85, eye:'#121214', stripes:true,
+              hint:'강가 돌 위를 꼬리 까딱이며 걸어 다녀요.',
+              colors:{head:'#25262b',face:'#f5f5f3',neck:'#25262b',breast:'#26272c',body:'#f2f2f0',wing:'#4a4d55',wingTip:'#1f2024',beak:'#1f2024',legs:'#2b2b30'}},
+  plover:    {tpl:'large', name:'이집트물떼새', voice:'삐요', head:'round', beak:'cone', beakLen:.12, feet:'toes', legLen:.45, lean:.55, tailUp:-.15, tailLen:1.3, backTint:.9,
+              capStart:.35, eye:'#121214', scale:[.7,.7,.75], rarity:.5,
+              hint:'강가 모래톱을 종종걸음으로 오가요. 깔끔한 걸 좋아한대요.',
+              colors:{head:'#1a1a1e',face:'#f4f2ec',neck:'#1a1a1e',breast:'#f1d9b0',body:'#e8b981',wing:'#9fa6ad',wingTip:'#1e1f24',beak:'#2a2a2e',legs:'#8fa3b5'}},
+  // 어두운 숲
+  jay:       {tpl:'large', name:'어치', voice:'깍깍', head:'round', beak:'cone', beakLen:.16, feet:'toes', legLen:.3, lean:.15, tailUp:-.3, backTint:.4, eye:'#d8d0c4', pupil:true,
+              stripes:true, stripeLight:'#7fb2e6', scale:[.8,.85,.8], rarity:.8,
+              hint:'숲에 솔방울이 떨어지면 시끄럽게 몰려와요.',
+              colors:{head:'#c9a99a',face:'#f1e6df',neck:'#c09a8a',breast:'#c9a194',body:'#d4b3a6',wing:'#2f5fa8',wingTip:'#1c1c22',beak:'#2a2a2e',legs:'#b39a8e'}},
+  woodpecker:{tpl:'small', name:'오색딱따구리', voice:'딱딱', beak:'dagger', beakLen:.16, lean:.05, tailUp:.25, backTint:.9, eye:'#121214', stripes:true, rarity:.5,
+              hint:'소나무 숲 깊은 곳에서 가끔 내려와요.',
+              colors:{head:'#1d1d22',face:'#f3f3f1',neck:'#d33a3a',breast:'#f0ece6',body:'#e9e4dc',wing:'#1d1d22',wingTip:'#141418',beak:'#3a3a40',legs:'#55555c'}},
+  // heart-faced barn owl: white face framed by the tan head colour, black eyes, golden-grey wings
+  barnowl:   {tpl:'large', name:'원숭이올빼미', voice:'쉬익', head:'round', headScale:1.3, beak:'hook', beakLen:.08, eyeScale:1.4, eyeAngle:.4, feet:'toes', legLen:.35, lean:-.02,
+              tailUp:-.4, backTint:.7, stripes:true, stripeLight:'#a8a39c', eye:'#141014', scale:[1,1.05,1], rarity:.4,
+              hint:'숲이 고요해지면 하얀 얼굴로 슬며시 내려와요.',
+              colors:{head:'#d9a46a',face:'#faf8f4',neck:'#f4efe8',breast:'#faf8f4',body:'#f3eee6',wing:'#c98b4f',wingTip:'#8d8a86',beak:'#e8cfc4',legs:'#e8d9c8'}},
+  uralowl:   {tpl:'large', name:'긴점박이올빼미', voice:'후우', head:'round', headScale:1.45, beak:'hook', beakLen:.08, eyeScale:1.5, eyeAngle:.45, feet:'toes', legLen:.2, lean:-.02,
+              tailUp:-.4, backTint:.6, bars:true, stripes:true, stripeLight:'#e6e1d8', eye:'#2a1f1a', scale:[1.15,.95,1.1], rarity:.35,
+              hint:'어두운 숲이 조용해지면 통나무에 앉으러 와요.',
+              colors:{head:'#b9b4aa',face:'#e2ddd3',neck:'#b9b4aa',breast:'#d9d3c7',body:'#cfc8bb',wing:'#8d867a',wingTip:'#4f4a42',beak:'#e8c24a',legs:'#d8d2c6'}},
+};
+const PLACES = {
+  yard:  {name:'베리 마당', cost:0,  food:'berry', species:['robin','sparrow','magpie','tit','wren','bullfinch'], desc:'작은 베리나무 한 그루에서 시작해요.',
+          hint:'나무를 톡 치거나, 꾹 누른 채 좌우로 흔들어 보세요'},
+  pond:  {name:'작은 물가', cost:25, food:'bread', species:['seagull','duck','duckf','spotbill','godwit','heron'], desc:'빵 바구니가 놓인 조용한 물가.',
+          hint:'빵 바구니를 톡톡 쳐서 빵가루를 던져 보세요'},
+  plaza: {name:'광장 벤치', cost:60, food:'snack', species:['pigeon','crow','falcon'], desc:'과자 봉지가 놓인 낡은 벤치.',
+          hint:'벤치 위 과자 봉지를 톡톡 쳐 보세요'},
+  river: {name:'맑은 강가', cost:100, food:'seed', species:['kingfisher','wagtail','plover'], desc:'넓은 강물이 가로질러 흐르는 강가.',
+          hint:'곡식 자루를 톡톡 쳐서 낟알을 흩뿌려 보세요'},
+  forest:{name:'어두운 숲', cost:160, food:'cone', species:['jay','woodpecker','uralowl','barnowl','owl'], desc:'소나무가 빽빽한 어둑한 숲속.',
+          hint:'가운데 작은 소나무를 흔들어 솔방울을 떨어뜨려 보세요'},
+};
+const PLACE_ORDER = ['yard','pond','plaza','river','forest'];
+// per-place light and ground colour
+const ENV = {
+  yard:{bg:0xf7f7f4}, pond:{bg:0xf7f7f4}, plaza:{bg:0xf7f7f4}, river:{bg:0xf4f7f6},
+  forest:{bg:0x34423a, hemi:.62, ground:0x2b372f, sun:.58, shadow:.28},
+};
+// items are bought with feathers and placed one of each per place
+const ITEMS = {
+  perch:     {name:'횃대',        cost:30,  desc:'새 세 마리가 앉아 쉬어 가요. 쉬는 동안 깃털을 떨어뜨려요.'},
+  feeder:    {name:'자동 모이통', cost:45,  desc:'몇 초마다 알아서 먹이를 흩뿌려요. 바닥에 먹이가 넉넉하면 쉬어요.'},
+  house:     {name:'새집',        cost:70,  desc:'새 두 마리가 오래 머물러요. 횃대보다 깃털을 더 자주 떨어뜨려요.'},
+  collector: {name:'깃털 수집기', cost:100, desc:'바닥에 떨어진 깃털을 하나씩 저절로 빨아들여요.'},
+  cleaner:   {name:'청소부 이집트물떼새', cost:150, cat:'cleaner',
+              desc:'파란 모자와 파란 조끼를 입은 이집트물떼새가 이 장소에 머물러요. 똥 얼룩이 쌓이면 종종걸음으로 다니며 하나씩 치워요.'},
+};
+const ITEM_ORDER = ['perch','feeder','house','collector','cleaner'];
+const SHOP_CATS = [['아이템', ITEM_ORDER.filter(k => !ITEMS[k].cat)], ['새똥 청소부', ITEM_ORDER.filter(k => ITEMS[k].cat === 'cleaner')]];
+// where each item stands in each place [x, z]
+const ITEM_SPOTS = {
+  yard:  {perch:[-1.3,1.4], feeder:[.8,1.6],  house:[2.1,-.4],  collector:[-2.1,.4], cleaner:[-.6,2.0]},
+  pond:  {perch:[-1.9,-.4], feeder:[.5,1.5],  house:[-1.2,-1.8], collector:[-2.1,1.0], cleaner:[-1.5,1.7]},
+  // plaza spots sit around the symmetric layout (lamps, facing benches, planters, clock tower)
+  plaza: {perch:[2.35,-.45], feeder:[-1.25,2.25], house:[2.35,1.55], collector:[-2.4,-.45], cleaner:[1.2,2.3]},
+  river: {perch:[-1.9,.9],  feeder:[.9,1.5],   house:[2.1,.7],   collector:[-2.2,0], cleaner:[1.6,1.5]},
+  forest:{perch:[-1.6,1.4], feeder:[.9,1.6],   house:[-2.0,-.5], collector:[2.0,-.3], cleaner:[-.4,2.0]},
+};
+const ALL_SPECIES = PLACE_ORDER.flatMap(p => PLACES[p].species);
+const SMALL4 = ['robin','tit','wren','bullfinch'];  // the "작은 새 도감" achievement set
+const BIRD_SCALE = .3;
+// raptors and owls get an extra shrink on top of the global scale
+const SIZE = {falcon:.72, owl:.66, uralowl:.72, barnowl:.72};
+const BK = BIRD_SCALE/.5;  // distances below were tuned at scale .5; BK keeps them in step with the bird size
+
+// ---------- save data (this browser only) ----------
+const KEY = 'berry-yard-v1';
+const fresh = () => ({dropped:0, eaten:0, maxCrowd:0, seen:{}, ach:[], feathers:0, places:['yard'], cur:'yard', dirt:{}, tried:{}, items:{}, hidden:{}, hiddenTold:{}});
+let S = fresh();
+try { const raw = localStorage.getItem(KEY); if (raw) S = {...fresh(), ...JSON.parse(raw)}; } catch {}
+if (!S.places.includes(S.cur)) S.cur = 'yard';
+if (S.dropped > 0) S.tried.yard = true;  // saves from before places existed
+let saveTimer = 0;
+function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} }, 300); }
+
+// ---------- achievements: each one grows the yard and/or invites a species ----------
+const ACH = [
+  {id:'first',   name:'첫 손님',     desc:'새에게 먹이 1개 먹이기',       cur:() => S.eaten,    goal:1,  reward:'박새가 소문을 듣고 찾아와요',          unlocks:'tit'},
+  {id:'shake',   name:'열매 비',     desc:'먹이 15개 떨어뜨리기',         cur:() => S.dropped,  goal:15, reward:'덤불이 자라요 · 굴뚝새가 올 수 있어요',  unlocks:'wren', element:'bush'},
+  {id:'crowd',   name:'북적북적',    desc:'새 3마리를 한꺼번에 모으기',    cur:() => S.maxCrowd, goal:3,  reward:'베리나무가 한 그루 더 · 멋쟁이새가 올 수 있어요', unlocks:'bullfinch', element:'tree2'},
+  {id:'regular', name:'단골 마당',   desc:'먹이 40개 먹이기',             cur:() => S.eaten,    goal:40, reward:'베리 마당에 작은 물그릇이 생겨요', element:'bowl'},
+  {id:'dex',     name:'작은 새 도감', desc:'작은 새 4종 모두 만나기',       cur:() => SMALL4.filter(k => S.seen[k]).length, goal:4, reward:'도감 완성 도장'},
+];
+const done = id => S.ach.includes(id);
+const hasElement = el => ACH.some(a => a.element === el && done(a.id));
+const poolFor = pid => pid === 'yard'
+  ? ['robin', 'sparrow', 'magpie', ...ACH.filter(a => a.unlocks && done(a.id)).map(a => a.unlocks)]
+  : PLACES[pid].species;
+
+// ======================================================================
+//  Geometry helpers
+// ======================================================================
+const mat = new THREE.MeshStandardMaterial({vertexColors:true, flatShading:true, roughness:.92, metalness:0});
+const frac = v => v - Math.floor(v);
+const rnd = n => frac(Math.sin(n*127.1 + 311.7)*43758.5453);
+const h3 = (x,y,z,s) => frac(Math.sin(Math.round(x*500)*12.9898 + Math.round(y*500)*78.233 + Math.round(z*500)*37.719 + s*4.581)*43758.5453);
+const ss = (a,b,x) => { const t = Math.min(1, Math.max(0, (x-a)/(b-a))); return t*t*(3-2*t); };
+const lathe = (pts, segs) => new THREE.LatheGeometry(pts.map(p => new THREE.Vector2(p[0], p[1])), segs);
+const col = h => new THREE.Color(h);
+
+// positions only: un-index, nudge vertices (hashed by position, so seams stay shut), face normals
+function shape(geo, jit = 0, seed = 0){
+  if (geo.index) geo = geo.toNonIndexed();
+  const pos = geo.attributes.position;
+  if (jit > 0) for (let j = 0; j < pos.count; j++){
+    const x = pos.getX(j), y = pos.getY(j), z = pos.getZ(j);
+    pos.setXYZ(j, x + (h3(x,y,z,seed)-.5)*jit, y + (h3(x,y,z,seed+1)-.5)*jit, z + (h3(x,y,z,seed+2)-.5)*jit);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+function merge(geos){
+  const arrs = geos.map(g => (g.index ? g.toNonIndexed() : g).attributes.position.array);
+  const out = new Float32Array(arrs.reduce((n, a) => n + a.length, 0));
+  let o = 0; for (const a of arrs){ out.set(a, o); o += a.length; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(out, 3)); g.computeVertexNormals();
+  return g;
+}
+// a "skin" shares the template's position + normal buffers and only adds its own colour buffer
+function skin(base, paint, salt = 0){
+  const pos = base.attributes.position, n = pos.count, cols = new Float32Array(n*3), c = new THREE.Color();
+  for (let i = 0; i < n; i += 3){
+    const f = 1 + (rnd(salt*31 + i) - .5)*.14;
+    for (let k = 0; k < 3; k++){
+      const j = i + k; paint(c, pos.getX(j), pos.getY(j), pos.getZ(j), i/3);
+      cols[j*3] = Math.min(1, c.r*f); cols[j*3+1] = Math.min(1, c.g*f); cols[j*3+2] = Math.min(1, c.b*f);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', pos); g.setAttribute('normal', base.attributes.normal);
+  g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+  return g;
+}
+const solid = (geo, hex, salt = 0, jit = 0) => { const c0 = col(hex); return skin(shape(geo, jit, salt), c => c.copy(c0), salt); };
+function mesh(geo){ const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true; return m; }
+
+// ======================================================================
+//  Bird templates (built once each)
+// ======================================================================
+function makeTemplate({segs, H, R, hr, legLen, round}){
+  const nr = hr*.92, J = .03, L = H*.72, wr = R*.95, tl = R*.75;
+  const P = {};
+  P.body = shape(lathe(round
+    ? [[0,0],[R*.78,H*.14],[R,H*.46],[R*.82,H*.8],[nr,H*.97],[0,H]]
+    : [[0,0],[R*.5,H*.05],[R*.9,H*.22],[R,H*.42],[R*.92,H*.62],[(R*.92+nr)/2,H*.8],[nr,H*.97],[0,H]], segs).scale(1,1,.92), J*R*2, 1);
+  const heads = {};
+  { const hh = hr*(round ? 1.6 : 1.9); heads.round = {hh, beakY:.4, geo:shape(lathe([[0,0],[nr,0],[hr*1.02,hh*.4],[hr*.75,hh*.82],[0,hh]], segs), J*hr*2, 2)}; }
+  if (!round){ const hh = hr*2.1; heads.point = {hh, beakY:.44, geo:shape(lathe([[0,0],[nr,0],[hr,hh*.3],[hr*.9,hh*.55],[hr*.45,hh*.85],[0,hh]], segs), J*hr*2, 2)}; }
+  // beak is unit length along +z; each bird scales z to its own length
+  const beak = (sx, sy) => shape(new THREE.ConeGeometry(hr*.28, 1, 4).rotateX(Math.PI/2).translate(0, 0, .5).scale(sx, sy, 1));
+  P.beak = {cone:beak(1,1), wedge:beak(.7,1.45), flat:beak(1.7,.45), needle:beak(.42,.5), dagger:beak(.6,.85),
+    // raptor hook: short and bent down at the tip
+    hook:shape(new THREE.ConeGeometry(hr*.28, 1, 4).rotateX(Math.PI/2).translate(0, 0, .5).rotateX(.65).scale(.9, 1.2, 1))};
+  // optional extras for the large template
+  P.neckTube = shape(lathe([[nr*.78,0],[nr*.66,.5],[nr*.72,1]], segs));
+  P.ear   = shape(new THREE.ConeGeometry(hr*.2, hr*.62, 3).translate(0, hr*.31, 0));
+  P.plume = shape(new THREE.ConeGeometry(hr*.06, hr*1.7, 3).rotateX(-Math.PI/2).translate(0, 0, -hr*.85));
+  P.eye   = shape(new THREE.OctahedronGeometry(hr*(round ? .17 : .14), 0).scale(1, 1, .45));
+  P.pupil = shape(new THREE.OctahedronGeometry(hr*.065, 0).scale(1, 1, .5));
+  P.wing  = shape(lathe([[0,0],[wr*.23,L*.28],[wr*.17,L*.66],[0,L]], 4).scale(.32,1,1).rotateX(Math.PI), J*R*1.5, 6);
+  P.tail  = shape(new THREE.ConeGeometry(R*.38, tl, 4).rotateX(-Math.PI/2).translate(0, 0, -tl/2).scale(1.25, .35, 1), J*R, 9);
+  const len = legLen + H*.1;
+  P.leg   = shape(new THREE.CylinderGeometry(R*.065, R*.055, len, 3, 1, true).translate(0, -len/2 + H*.1, 0));
+  P.toes  = merge([[-.55,.38],[0,.42],[.55,.38],[Math.PI,.22]].map(([a, l]) =>
+    new THREE.ConeGeometry(R*.045, R*l, 3, 1, true).rotateX(Math.PI/2).translate(0, R*.02, R*l/2).scale(1, .6, 1).rotateY(a)));
+  P.web   = shape(new THREE.ConeGeometry(R*.34, R*.12, 3).rotateY(Math.PI).translate(0, R*.06, R*.14).scale(1, .5, 1.15));
+  return {segs, H, R, hr, legLen, round, L, tl, bottom:-H*.16, P, heads};
+}
+const TPL = {
+  small: makeTemplate({segs:4, H:.58, R:.33, hr:.2,  legLen:.19, round:true}),
+  large: makeTemplate({segs:5, H:1,   R:.45, hr:.28, legLen:.4,  round:false}),
+};
+
+const skinCache = {};
+function skinsFor(id){
+  if (skinCache[id]) return skinCache[id];
+  const sp = SPECIES[id], t = TPL[sp.tpl], C = {};
+  for (const k in sp.colors) C[k] = col(sp.colors[k]);
+  const white = sp.stripeLight ? col(sp.stripeLight) : col('#f4f4f6'), footC = C.legs.clone().multiplyScalar(.88);
+  const beakDark = sp.beakTip ? col(sp.beakTip) : C.beak.clone().multiplyScalar(.72);
+  const {H, R, hr, L, tl, P, round} = t, hd = t.heads[sp.head || 'round'], hh = hd.hh;
+  const rings = round ? 5 : 7, cap = sp.capStart ?? .05;
+  return skinCache[id] = {
+    body: skin(P.body, (c,x,y,z,f) => {
+      const u = y/H;
+      c.copy(C.body).lerp(C.breast, ss(-R*.05, R*.45, z) * ss(.15, .5, u));
+      c.lerp(C.neck, ss(.7, .93, u) * (round ? .6 : 1));
+      if (z < -R*.1) c.lerp(C.wing, sp.backTint * ss(-R*.1, -R*.5, z) * (round ? 1 : 1 - ss(.7, .9, u)));
+      // chunky barring across the breast: every other ring of faces gets darker
+      if (sp.bars && z > -R*.2 && u > .12 && u < .78 && Math.floor(f/2) % rings % 2) c.lerp(C.wingTip, .4);
+      if (u < .12) c.multiplyScalar(.85);
+    }, 1),
+    head: skin(hd.geo, (c,x,y,z) => {
+      const u = y/hh;
+      c.copy(C.neck).lerp(C.head, ss(cap, cap + .33, u));
+      c.lerp(C.face, ss(.74, .5, u) * ss(-hr*.4, hr*.2, z));
+    }, 2),
+    beak:  skin(P.beak[sp.beak || 'cone'], (c,x,y,z) => c.copy(C.beak).lerp(beakDark, ss(.3, 1, z)), 3),
+    neckTube: sp.neckLen ? skin(P.neckTube, (c,x,y,z) => c.copy(C.neck).lerp(C.face, ss(0, hr*.5, z)*.6), 7) : null,
+    ear:   sp.ears ? skin(P.ear, c => c.copy(C.head), 8) : null,
+    plume: sp.plume ? skin(P.plume, c => c.copy(C.head), 8) : null,
+    eye:   skin(P.eye, c => c.set(sp.eye), 4),
+    pupil: sp.pupil ? skin(P.pupil, c => c.set('#0d0d10'), 5) : null,
+    wing:  skin(P.wing, (c,x,y,z,f) => {
+      const v = -y/L;
+      c.copy(C.wing).lerp(C.wingTip, ss(.45, .95, v));
+      if (sp.stripes && v > .6){ const q = Math.floor(f/2); c.copy((Math.floor(q/3) + q%3) % 2 ? C.wingTip : white); }
+    }, 6),
+    tail:  skin(P.tail, (c,x,y,z) => c.copy(C.wing).lerp(C.wingTip, ss(.3, 1, -z/tl)), 9),
+    leg:   skin(P.leg, c => c.copy(C.legs), 10),
+    feet:  skin(sp.feet === 'web' ? P.web : P.toes, (c,x,y,z) => c.copy(footC), 12),
+  };
+}
+
+function buildBird(id){
+  const sp = SPECIES[id], t = TPL[sp.tpl], G = skinsFor(id), {H, R, hr, bottom} = t;
+  const hd = t.heads[sp.head || 'round'], legLen = sp.legLen || t.legLen;
+  const root = new THREE.Group();
+  const body = new THREE.Group(); body.scale.setScalar(BIRD_SCALE*(SIZE[id] || 1)); root.add(body);
+  const hips = new THREE.Group(); hips.position.y = legLen; body.add(hips);
+  const torso = new THREE.Group(); torso.rotation.x = sp.lean; if (sp.scale) torso.scale.set(...sp.scale); hips.add(torso);
+  const b = mesh(G.body); b.position.y = bottom; torso.add(b);
+  const neck = new THREE.Group(); neck.position.y = bottom + H*.95; neck.rotation.x = -sp.lean*.8; torso.add(neck);
+  if (G.neckTube){ const tube = mesh(G.neckTube); tube.scale.y = sp.neckLen; neck.add(tube); }
+  const head = new THREE.Group(); head.position.y = sp.neckLen || 0; head.scale.setScalar(sp.headScale || 1); neck.add(head);
+  head.add(mesh(G.head));
+  const beak = mesh(G.beak); beak.position.set(0, hd.hh*hd.beakY, hr*.8); beak.scale.z = sp.beakLen || .07; beak.rotation.x = sp.beakTilt || 0; head.add(beak);
+  if (G.ear) for (const s of [-1, 1]){ const e = mesh(G.ear); e.position.set(s*hr*.55, hd.hh*.78, -hr*.05); e.rotation.z = -s*.35; head.add(e); }
+  if (G.plume){ const p = mesh(G.plume); p.position.set(0, hd.hh*.62, -hr*.7); p.rotation.x = .35; head.add(p); }
+  for (const s of [-1, 1]){
+    const e = new THREE.Group(), a = sp.eyeAngle || .95;
+    e.position.set(s*Math.sin(a)*hr*.86, hd.hh*.56, Math.cos(a)*hr*.86); e.rotation.y = s*a; e.scale.setScalar(sp.eyeScale || 1); head.add(e);
+    e.add(mesh(G.eye));
+    if (G.pupil){ const p = mesh(G.pupil); p.position.z = hr*.06; e.add(p); }
+  }
+  const wings = [-1, 1].map(s => {
+    const w = mesh(G.wing); w.position.set(s*R*.8, bottom + H*.7, -R*.18); w.rotation.set(.34, 0, s*.03); torso.add(w); return w;
+  });
+  const tail = mesh(G.tail); tail.position.set(0, bottom + H*.2, -R*.7); tail.rotation.x = sp.tailUp; tail.scale.z = sp.tailLen || 1; torso.add(tail);
+  const k = legLen/t.legLen;
+  const legs = [-1, 1].map(s => {
+    const lg = new THREE.Group(); lg.position.set(s*R*.32, 0, R*.05); hips.add(lg);
+    const leg = mesh(G.leg); leg.scale.y = k; lg.add(leg);
+    const feet = mesh(G.feet); feet.position.y = -legLen; lg.add(feet);
+    return lg;
+  });
+  return {root, hips, torso, neck, head, wings, legs, sp, id, large:sp.tpl === 'large'};
+}
+
+// ======================================================================
+//  Scene
+// ======================================================================
+const canvas = document.getElementById('world');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0xf7f7f4);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(32, 1, .1, 80);
+const hemi = new THREE.HemisphereLight(0xffffff, 0xd8d4cc, .85); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, .75);
+sun.position.set(3, 6, 2.5); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, {left:-5, right:5, top:5, bottom:-5, near:.5, far:20}); sun.shadow.radius = 3;
+scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60).rotateX(-Math.PI/2), new THREE.ShadowMaterial({opacity:.13}));
+ground.receiveShadow = true; scene.add(ground);
+function applyEnv(pid){
+  const e = ENV[pid];
+  renderer.setClearColor(e.bg);
+  hemi.intensity = e.hemi ?? .85; hemi.groundColor.set(e.ground ?? 0xd8d4cc);
+  sun.intensity = e.sun ?? .75; ground.material.opacity = e.shadow ?? .13;
+  document.body.dataset.place = pid;
+}
+
+// ---------- per-place runtime ----------
+const RT = {};
+for (const pid of PLACE_ORDER){
+  const g = new THREE.Group(); g.visible = false; scene.add(g);
+  RT[pid] = {id:pid, group:g, sources:[], food:[], birds:[], poops:[], feathers:[], cleaning:-1, spawnT:1.2, elements:{}, items:{}, spots:[], specials:[], collT:1, obstacles:[], extras:[], puffs:[]};
+}
+// ground footprints of solid things (trunks, bench, sack…) as circles; birds and food get pushed outside them
+function addObstacle(rt, x, z, r, extra){ rt.obstacles.push({x, z, r, extra:!!extra}); }
+function pushOut(rt, p, pad){
+  for (const o of rt.obstacles){
+    let dx = p.x - o.x, dz = p.z - o.z, d = Math.hypot(dx, dz);
+    const m = o.r + pad;
+    if (d >= m) continue;
+    if (d < 1e-4){ dx = 1; dz = 0; d = 1; }
+    p.x = o.x + dx/d*m; p.z = o.z + dz/d*m;
+  }
+}
+let cur = S.cur, P = RT[cur];
+
+// ---------- food ----------
+const FOOD = {
+  berry: {geo:skin(shape(new THREE.OctahedronGeometry(.055, 0)), c => c.set('#d23a4f'), 3), r:.055},
+  bread: {geo:solid(new THREE.BoxGeometry(.075, .04, .06), '#d8ae68', 80), r:.02},
+  snack: {geo:solid(new THREE.BoxGeometry(.06, .035, .06), '#efc451', 81), r:.018},
+  seed:  {geo:solid(new THREE.OctahedronGeometry(.03, 0).scale(1, .6, 1.4), '#e3c77e', 82), r:.018},
+  cone:  {geo:solid(new THREE.ConeGeometry(.035, .085, 5).rotateX(Math.PI/2), '#8a5a33', 83), r:.035},
+};
+
+// ---------- food sources (tap / shake to drop food) ----------
+function makeSource(rt, {x, z, s = 1, food, throwH, throwUp, build, slotPos}){
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s);
+  const src = {rt, group:g, slots:[], shake:0, energy:0, hit:[], s, food, throwH, throwUp};
+  build(g, src);
+  for (const m of src.hit) m.userData.src = src;
+  src.slots = slotPos.map(p => ({pos:p, item:null, regrow:0}));
+  for (const sl of src.slots) growFood(src, sl, 1);
+  rt.group.add(g); rt.sources.push(src);
+  return src;
+}
+function growFood(src, slot, start = 0){
+  const m = mesh(FOOD[src.food].geo); m.position.copy(slot.pos); m.scale.setScalar(Math.max(.001, start));
+  m.rotation.set(rnd(slot.pos.x*9)*3, rnd(slot.pos.y*9 + slot.pos.z)*3, 0);
+  src.group.add(m); slot.item = {mesh:m, grow:start};
+}
+
+// berry tree
+const leafLight = col('#62a052'), leafDark = col('#3c6e3d');
+const BLOBS = [[0,1.3,0,.55],[.38,1.08,.12,.4],[-.34,1.12,-.1,.42],[.05,1.05,-.35,.36]];
+const treeGeo = {
+  trunk: solid(new THREE.CylinderGeometry(.08, .13, 1.0, 5, 1, true).translate(0, .5, 0), '#7a5434', 21, .02),
+  branch: solid(new THREE.CylinderGeometry(.035, .055, .45, 4, 1, true).translate(0, .22, 0), '#7a5434', 22),
+  blobs: BLOBS.map(([, , , r], i) => skin(shape(new THREE.IcosahedronGeometry(r, 0), r*.14, 30+i), (c,x,y) => c.copy(leafDark).lerp(leafLight, ss(-r*.8, r*.6, y)), 30+i)),
+};
+function makeTree(rt, x, z, s, seed){
+  const slotPos = [];
+  for (let i = 0; i < 10; i++){
+    const [bx, by, bz, r] = BLOBS[i % BLOBS.length];
+    const a = rnd(seed*13 + i*3.7)*Math.PI*2, yv = -.35 + rnd(seed*7 + i*1.3)*.8;
+    const d = new THREE.Vector3(Math.cos(a), yv, Math.sin(a)).normalize();
+    slotPos.push(new THREE.Vector3(bx + d.x*r*.92, by + d.y*r*.92, bz + d.z*r*.92));
+  }
+  return makeSource(rt, {x, z, s, food:'berry', throwH:.7, throwUp:.5, slotPos, build:(g, src) => {
+    const trunk = mesh(treeGeo.trunk); g.add(trunk); src.hit.push(trunk);
+    const br = mesh(treeGeo.branch); br.position.set(.03, .62, 0); br.rotation.z = -.8; g.add(br);
+    BLOBS.forEach(([bx, by, bz], i) => { const m = mesh(treeGeo.blobs[i]); m.position.set(bx, by, bz); m.rotation.y = rnd(seed+i)*6; g.add(m); src.hit.push(m); });
+  }});
+}
+
+// ---------- the three places ----------
+function buildYard(rt){ makeTree(rt, 0, 0, 1, 1); }
+function addYardElement(name, pop){
+  const rt = RT.yard; if (rt.elements[name]) return;
+  let g;
+  if (name === 'tree2'){ const src = makeTree(rt, -1.9, -.7, .78, 2); src.extra = true; g = src.group; }
+  else if (name === 'bush'){
+    g = new THREE.Group(); g.position.set(1.8, 0, .9);
+    [[0,.26,0,.36],[.34,.2,.12,.27],[-.3,.18,.1,.25]].forEach(([x,y,z,r], i) => {
+      const m = mesh(skin(shape(new THREE.IcosahedronGeometry(r, 0), r*.16, 50+i), (c,px,py) => c.copy(leafDark).lerp(leafLight, ss(-r, r*.5, py)), 50+i));
+      m.position.set(x, y, z); g.add(m);
+    });
+    rt.group.add(g);
+  } else if (name === 'bowl'){
+    g = new THREE.Group(); g.position.set(1.2, 0, -1.6);
+    const bowl = mesh(solid(new THREE.CylinderGeometry(.32, .24, .12, 7), '#bdb7ad', 60)); bowl.position.y = .06; g.add(bowl);
+    const water = mesh(solid(new THREE.CircleGeometry(.27, 7).rotateX(-Math.PI/2), '#86bfdc', 61)); water.position.y = .122; g.add(water);
+    rt.group.add(g);
+    rt.specials.push({kind:'bowl', pos:new THREE.Vector3(1.2, .122, -1.6), yaw:.6, occupant:null});
+  }
+  rt.elements[name] = g;
+  const foot = {tree2:[-1.9,-.7,.26], bush:[1.8,.9,.62], bowl:[1.2,-1.6,.34]}[name];
+  addObstacle(rt, ...foot, true);
+  if (pop){ g.userData.target = g.scale.x; g.scale.multiplyScalar(.001); g.userData.pop = 0; }
+}
+function buildPond(rt){
+  const g = rt.group;
+  const water = mesh(skin(shape(new THREE.CircleGeometry(1.5, 9).rotateX(-Math.PI/2), .3, 90), (c,x,y,z) => c.set('#8fcbe6').lerp(col('#4f9fcf'), ss(1.3, 0, Math.hypot(x, z))), 90));
+  flatten(water.geometry);
+  water.position.set(1.5, .004, -1.1); water.scale.set(1.3, 1, .95); water.receiveShadow = true; g.add(water);
+  // places on the water where a bird can bob and rest
+  for (const [x, z] of [[1.2,-.8],[1.9,-1.4],[1.0,-1.6],[2.2,-.7]])
+    rt.specials.push({kind:'water', pos:new THREE.Vector3(x, .004, z), yaw:Math.random()*6, occupant:null});
+  const reedC = col('#6f9a4e');
+  for (let i = 0; i < 7; i++){
+    const a = -.4 + i*.38, h = .45 + rnd(i*3)*.35;
+    const r = mesh(solid(new THREE.ConeGeometry(.03, h, 3).translate(0, h/2, 0), '#6f9a4e', 91+i));
+    r.position.set(1.5 + Math.cos(a)*1.85, 0, -1.1 + Math.sin(a)*1.35); r.rotation.z = (rnd(i)-.5)*.3; g.add(r);
+  }
+  for (let i = 0; i < 3; i++){
+    const st = mesh(solid(new THREE.DodecahedronGeometry(.12 + rnd(i*5)*.08, 0).scale(1, .55, 1), '#b8b3a9', 100+i, .04));
+    st.position.set(-1.6 + i*.35, .04, 1.3 - i*.5); g.add(st);
+  }
+  const slotPos = [];
+  for (let i = 0; i < 9; i++){ const a = i*2.4, r = .05 + rnd(i*1.7)*.11; slotPos.push(new THREE.Vector3(Math.cos(a)*r, .27, Math.sin(a)*r)); }
+  makeSource(rt, {x:-.6, z:.5, food:'bread', throwH:1.7, throwUp:1.9, slotPos, build:(bg, src) => {
+    const basket = mesh(solid(new THREE.CylinderGeometry(.24, .18, .26, 6, 1, true).translate(0, .13, 0), '#c99a5b', 110, .02));
+    const bottom = mesh(solid(new THREE.CircleGeometry(.18, 6).rotateX(Math.PI/2).translate(0, .01, 0), '#a77a43', 111));
+    const fill = mesh(solid(new THREE.CircleGeometry(.22, 6).rotateX(-Math.PI/2).translate(0, .24, 0), '#e6c58c', 112));
+    const handle = mesh(solid(new THREE.TorusGeometry(.22, .02, 3, 6, Math.PI).translate(0, .26, 0), '#a77a43', 113));
+    bg.add(basket, bottom, fill, handle); src.hit.push(basket, fill, handle);
+  }});
+}
+function buildPlaza(rt){
+  const g = rt.group;
+  // brick paving, colour only: running-bond rows of tan bricks (a few reddish ones) over pale mortar
+  const mortar = mesh(solid(new THREE.CircleGeometry(3.25, 18).rotateX(-Math.PI/2), '#c9c0b4', 119));
+  mortar.position.y = .002; mortar.castShadow = false; g.add(mortar);
+  const BW = .36, BH = .16, GAP = .022, bp = [], bc = [], c = new THREE.Color();
+  // muted on purpose: the scene lighting brightens vertex colours a fair bit
+  const tans = ['#a8907f','#ae9888','#a38b79','#9d8574','#b39e8d','#a68e7c'].map(col), reds = ['#97614f','#9e6a58'].map(col);
+  let row = 0;
+  for (let z = -3.3; z <= 3.3; z += BH + GAP, row++){
+    for (let x = -3.5 + (row % 2 ? (BW + GAP)/2 : 0); x <= 3.5; x += BW + GAP){
+      const cx = x + BW/2, cz = z + BH/2;
+      if (Math.hypot(cx, cz) > 3.15) continue;
+      const k = rnd(cx*13.1 + cz*7.7);
+      c.copy(k < .08 ? reds[Math.floor(k*25) % 2] : tans[Math.floor(rnd(cx*3.3 + cz*9.1)*tans.length)]).multiplyScalar(.96 + rnd(cx*5.7 - cz*2.1)*.08);
+      bp.push(x,0,z, x,0,z + BH, x + BW,0,z + BH,  x,0,z, x + BW,0,z + BH, x + BW,0,z);
+      for (let v = 0; v < 6; v++) bc.push(c.r, c.g, c.b);
+    }
+  }
+  const brickGeo = new THREE.BufferGeometry();
+  brickGeo.setAttribute('position', new THREE.Float32BufferAttribute(bp, 3));
+  brickGeo.setAttribute('color', new THREE.Float32BufferAttribute(bc, 3));
+  brickGeo.computeVertexNormals();
+  const bricks = new THREE.Mesh(brickGeo, mat); bricks.position.y = .004; bricks.receiveShadow = true; g.add(bricks);
+  const lamp = new THREE.Group(); lamp.position.set(-1.9, 0, -1.4);
+  const pole = mesh(solid(new THREE.CylinderGeometry(.035, .05, 1.9, 5).translate(0, .95, 0), '#4c5058', 130));
+  const head = mesh(solid(new THREE.OctahedronGeometry(.14, 0).scale(1, 1.2, 1).translate(0, 1.98, 0), '#fbe7a4', 131));
+  lamp.add(pole, head); g.add(lamp);
+  const bench = new THREE.Group(); bench.position.set(0, 0, -.5); g.add(bench);
+  const wood = '#a4774f', iron = '#5b5f66';
+  const seat = mesh(solid(new THREE.BoxGeometry(1.3, .06, .38), wood, 132)); seat.position.y = .42; bench.add(seat);
+  const back = mesh(solid(new THREE.BoxGeometry(1.3, .26, .05), wood, 133)); back.position.set(0, .66, -.18); back.rotation.x = -.12; bench.add(back);
+  for (const sx of [-.55, .55]){
+    const leg = mesh(solid(new THREE.BoxGeometry(.06, .42, .34), iron, 134)); leg.position.set(sx, .21, 0); bench.add(leg);
+  }
+  // loafing spots: two on the seat (clear of the snack bag), two tucked under the bench
+  for (const [x, y, z] of [[-.45,.45,-.5],[-.15,.45,-.52],[-.25,0,-.5],[.25,0,-.45]])
+    rt.specials.push({kind:'loaf', pos:new THREE.Vector3(x, y, z), yaw:(Math.random()-.5)*.6, occupant:null});
+  const slotPos = [];
+  for (let i = 0; i < 8; i++) slotPos.push(new THREE.Vector3(-.16 + (i%4)*.1 + rnd(i)*.03, .03, .1 + Math.floor(i/4)*.08));
+  makeSource(rt, {x:.25, z:-.5 + 0, food:'snack', throwH:1.6, throwUp:1.6, slotPos:slotPos.map(p => p.clone().add(new THREE.Vector3(0, .42, -.05))), build:(bg, src) => {
+    const bag = mesh(solid(new THREE.BoxGeometry(.2, .24, .09).translate(0, .57, -.05), '#e05a47', 140));
+    const top = mesh(solid(new THREE.ConeGeometry(.08, .09, 4).rotateY(Math.PI/4).scale(1.4, 1, .6).translate(0, .73, -.05), '#c8463a', 141));
+    const label = mesh(solid(new THREE.PlaneGeometry(.12, .08).translate(0, .58, .0), '#fff2c9', 142));
+    bag.rotation.z = -.12; top.rotation.z = -.12; label.rotation.z = -.12;
+    bg.add(bag, top, label); src.hit.push(bag, top);
+  }});
+}
+const rippleMat = new THREE.MeshBasicMaterial({map:null, color:0xffffff, transparent:true, opacity:.5, depthWrite:false});
+function buildRiver(rt){
+  const g = rt.group;
+  // a broad river crossing the whole view, deepest in the middle
+  const river = mesh(skin(shape(new THREE.PlaneGeometry(11, 1.8, 11, 3).rotateX(-Math.PI/2), .2, 300),
+    (c,x,y,z) => c.set('#a6d8ec').lerp(col('#6aaed3'), ss(.9, 0, Math.abs(z))), 300));
+  river.position.set(0, .004, -1.0); river.receiveShadow = true; g.add(river);
+  // white streaks drifting downstream
+  rt.ripples = [];
+  for (let i = 0; i < 10; i++){
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI/2), rippleMat);
+    m.scale.set(.25 + rnd(i)*.3, 1, .04); m.position.set(-5 + rnd(i*3)*10, .007, -1.0 + (rnd(i*7) - .5)*1.2);
+    m.userData.v = .3 + rnd(i*11)*.3; g.add(m); rt.ripples.push(m);
+  }
+  for (let i = 0; i < 16; i++){
+    const side = i % 2 ? 1 : -1, x = -4 + i*.55 + rnd(i)*.3;
+    const p = mesh(solid(new THREE.DodecahedronGeometry(.06 + rnd(i*5)*.07, 0).scale(1, .6, 1), rnd(i*2) > .5 ? '#c9c4ba' : '#b3aea4', 310 + i, .02));
+    p.position.set(x, .03, -1.0 + side*(.95 + rnd(i*9)*.15)); g.add(p);
+  }
+  for (let i = 0; i < 6; i++){
+    const h = .4 + rnd(i*3)*.3, r = mesh(solid(new THREE.ConeGeometry(.03, h, 3).translate(0, h/2, 0), '#6f9a4e', 330 + i));
+    r.position.set(-2.6 + i*1.1 + rnd(i)*.3, 0, -.02 - rnd(i*4)*.1); r.rotation.z = (rnd(i) - .5)*.3; g.add(r);
+  }
+  for (const [x, z] of [[-1.5,-1.0],[-.4,-1.25],[.8,-.85],[1.9,-1.1]])
+    rt.specials.push({kind:'water', pos:new THREE.Vector3(x, .004, z), yaw:Math.random()*6, occupant:null});
+  const slotPos = [];
+  for (let i = 0; i < 9; i++){ const a = i*2.4, r = .04 + rnd(i*1.9)*.1; slotPos.push(new THREE.Vector3(Math.cos(a)*r, .36, Math.sin(a)*r)); }
+  makeSource(rt, {x:-.5, z:.75, food:'seed', throwH:1.5, throwUp:1.7, slotPos, build:(bg, src) => {
+    const sack = mesh(solid(new THREE.IcosahedronGeometry(.24, 0).scale(1, 1.15, .9).translate(0, .22, 0), '#cdb187', 340, .05));
+    const neck = mesh(solid(new THREE.CylinderGeometry(.09, .13, .1, 5).translate(0, .43, 0), '#b89a6d', 341));
+    const open = mesh(solid(new THREE.CircleGeometry(.12, 6).rotateX(-Math.PI/2).translate(0, .35, 0), '#e8d39a', 342));
+    bg.add(sack, neck, open); src.hit.push(sack, neck);
+  }});
+}
+const pineGeo = (h, s) => [
+  solid(new THREE.CylinderGeometry(.05*s, .08*s, h*.35, 5).translate(0, h*.175, 0), '#5a3e2b', 400),
+  ...[0,1,2].map(i => solid(new THREE.ConeGeometry((.55 - i*.14)*s, h*.38, 6).translate(0, h*(.33 + i*.22), 0), ['#24482f','#2c573a','#356745'][i], 401 + i, .03*s)),
+];
+function buildForest(rt){
+  const g = rt.group;
+  const floor = mesh(skin(shape(new THREE.CircleGeometry(4.6, 12).rotateX(-Math.PI/2), .3, 380),
+    (c,x,y,z) => c.set('#4b6150').lerp(col('#33433a'), ss(1.5, 4.4, Math.hypot(x, z))), 380));
+  flatten(floor.geometry);
+  floor.position.y = .002; floor.receiveShadow = true; g.add(floor);
+  // pines mostly behind and beside the clearing so they don't block the starting view
+  for (const [x, z, s] of [[-2.4,-1.6,1.1],[2.5,-1.4,1.2],[-2.9,.2,.9],[3.3,-.1,.95],[-1.3,-2.6,1.3],[1.2,-2.7,1.15],[0,-3.2,1.4],[-3.5,1.7,.8]]){
+    const t = new THREE.Group(); t.position.set(x, 0, z); t.rotation.y = rnd(x*7 + z)*6;
+    for (const geo of pineGeo(2.2*s, s)) t.add(mesh(geo));
+    g.add(t); addObstacle(rt, x, z, .55*s);
+  }
+  const log = mesh(solid(new THREE.CylinderGeometry(.16, .18, 1.1, 6).rotateZ(Math.PI/2), '#6b4a33', 390, .02));
+  log.position.set(1.3, .16, .9); log.rotation.y = .3; g.add(log);
+  const stump = mesh(solid(new THREE.CylinderGeometry(.2, .24, .24, 6).translate(0, .12, 0), '#6b4a33', 391));
+  stump.position.set(-1.4, 0, 1.0); g.add(stump);
+  // log and stump double as loafing spots
+  for (const [x, y, z] of [[1.05,.33,.82],[1.55,.33,.98],[-1.4,.24,1.0]])
+    rt.specials.push({kind:'loaf', pos:new THREE.Vector3(x, y, z), yaw:(Math.random()-.5)*.8, occupant:null});
+  const slotPos = [];
+  for (let i = 0; i < 9; i++){ const a = i*2.1, lvl = i % 3; slotPos.push(new THREE.Vector3(Math.cos(a)*(.42 - lvl*.11), .55 + lvl*.3, Math.sin(a)*(.42 - lvl*.11))); }
+  makeSource(rt, {x:0, z:0, food:'cone', throwH:.8, throwUp:.6, slotPos, build:(bg, src) => {
+    for (const geo of pineGeo(1.6, .95)){ const m = mesh(geo); bg.add(m); src.hit.push(m); }
+  }});
+}
+buildYard(RT.yard); buildPond(RT.pond); buildPlaza(RT.plaza); buildRiver(RT.river); buildForest(RT.forest);
+// footprints of the fixed scenery in each place [x, z, radius]
+for (const [pid, list] of Object.entries({
+  yard:  [[0,0,.32]],
+  pond:  [[-.6,.5,.32],[-1.6,1.3,.2],[-1.25,.8,.2],[-.9,.3,.2]],
+  plaza: [[-.5,-.5,.27],[0,-.5,.27],[.5,-.5,.27],[-1.9,-1.4,.12]],
+  river: [[-.5,.75,.32]],
+  forest:[[0,0,.6],[1.3,.9,.2],[1.64,.79,.2],[.96,1.01,.2],[-1.4,1.0,.28]],
+})) for (const [x, z, r] of list) addObstacle(RT[pid], x, z, r);
+
+// ---------- items (bought with feathers) ----------
+const glassMat = new THREE.MeshStandardMaterial({color:0xfff4c8, transparent:true, opacity:.45, flatShading:true, roughness:.2, depthWrite:false});
+function placeItem(pid, kind, pop){
+  const rt = RT[pid]; if (rt.items[kind]) return;
+  const [x, z] = ITEM_SPOTS[pid][kind];
+  const it = {kind};
+  if (kind === 'cleaner'){
+    makeCleaner(rt, x, z);
+    it.group = rt.cleaner.b.root; rt.items[kind] = it; rt.elements['item-' + kind] = it.group;
+    if (pop){ it.group.userData.target = 1; it.group.scale.setScalar(.001); it.group.userData.pop = 0; }
+    return;
+  }
+  const addSpots = (g, list) => {
+    g.updateMatrix();
+    for (const [lx, ly, lz] of list) rt.spots.push({kind, pos:new THREE.Vector3(lx, ly, lz).applyMatrix4(g.matrix), yaw:g.rotation.y, occupant:null});
+  };
+  if (kind === 'feeder'){
+    const slotPos = [0,1,2,3,4,5].map(i => new THREE.Vector3(Math.cos(i*1.05)*.2, .66, Math.sin(i*1.05)*.2));
+    const src = makeSource(rt, {x, z, food:PLACES[pid].food, throwH:1.1, throwUp:1.3, slotPos, build:(g, s) => {
+      const post = mesh(solid(new THREE.CylinderGeometry(.035, .045, .6, 4).translate(0, .3, 0), '#7a5434', 200));
+      const tray = mesh(solid(new THREE.CylinderGeometry(.3, .26, .05, 6).translate(0, .62, 0), '#a4774f', 201));
+      const hopper = mesh(solid(new THREE.CylinderGeometry(.1, .12, .28, 5).translate(0, .78, 0), '#cfe6ee', 202));
+      const cap = mesh(solid(new THREE.ConeGeometry(.17, .13, 5).translate(0, .985, 0), '#c0574a', 203));
+      g.add(post, tray, hopper, cap); s.hit.push(tray, hopper, cap);
+    }});
+    src.extra = true; src.auto = 2;
+    it.group = src.group;
+  } else {
+    const g = new THREE.Group(); g.position.set(x, 0, z); g.lookAt(0, 0, 0); it.group = g;
+    if (kind === 'perch'){
+      for (const px of [-.42, .42]) { const p = mesh(solid(new THREE.CylinderGeometry(.03, .04, .72, 4).translate(px, .36, 0), '#7a5434', 210)); g.add(p); }
+      g.add(mesh(solid(new THREE.CylinderGeometry(.025, .025, .96, 5).rotateZ(Math.PI/2).translate(0, .72, 0), '#a4774f', 211)));
+      addSpots(g, [[-.28,.745,0],[0,.745,0],[.28,.745,0]]);
+    } else if (kind === 'house'){
+      g.add(mesh(solid(new THREE.CylinderGeometry(.035, .045, .95, 4).translate(0, .475, 0), '#7a5434', 220)));
+      g.add(mesh(solid(new THREE.BoxGeometry(.34, .3, .3).translate(0, 1.1, 0), '#dcbf8e', 221)));
+      g.add(mesh(solid(new THREE.ConeGeometry(.33, .22, 4).rotateY(Math.PI/4).translate(0, 1.36, 0), '#c0574a', 222)));
+      g.add(mesh(solid(new THREE.CircleGeometry(.065, 6).translate(0, 1.13, .152), '#3a2a20', 223)));
+      g.add(mesh(solid(new THREE.CylinderGeometry(.012, .012, .14, 3).rotateX(Math.PI/2).translate(0, 1.0, .2), '#7a5434', 224)));
+      addSpots(g, [[0,1.01,.22],[0,1.47,0]]);
+    } else if (kind === 'collector'){
+      g.add(mesh(solid(new THREE.CylinderGeometry(.16, .2, .16, 6).translate(0, .08, 0), '#6d727a', 230)));
+      g.add(mesh(solid(new THREE.CylinderGeometry(.035, .035, .3, 4).translate(0, .3, 0), '#6d727a', 231)));
+      const jar = new THREE.Mesh(new THREE.IcosahedronGeometry(.2, 0), glassMat); jar.position.y = .62; g.add(jar);
+      const core = new THREE.Mesh(featherCore, featherCoreMat); core.position.y = .62; g.add(core);
+      const halo = new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex, transparent:true, depthWrite:false}));
+      halo.scale.setScalar(.6); halo.position.y = .62; g.add(halo);
+      it.core = core; it.halo = halo; it.jarPos = new THREE.Vector3(x, .62, z);
+    }
+    rt.group.add(g);
+  }
+  rt.items[kind] = it;
+  rt.elements['item-' + kind] = it.group;
+  if (kind === 'perch'){
+    // two posts, set apart along the perch's own sideways axis
+    const g = it.group, sx = Math.cos(g.rotation.y), sz = -Math.sin(g.rotation.y);
+    for (const s of [-.42, .42]) addObstacle(rt, x + sx*s, z + sz*s, .1, true);
+  } else addObstacle(rt, x, z, {feeder:.3, house:.12, collector:.24}[kind], true);
+  if (pop){ it.group.userData.target = 1; it.group.scale.setScalar(.001); it.group.userData.pop = 0; }
+}
+// ---------- the cleaner: an Egyptian plover in a blue cap and vest who lives in one place ----------
+function makeCleaner(rt, x, z){
+  const b = buildBird('plover'), t = TPL.large, {H, R, hr, bottom} = t, hh = t.heads.round.hh;
+  const blue = '#2f6fd6', darkBlue = '#245bb5';
+  const vest = mesh(solid(new THREE.CylinderGeometry(R*1.05, R*1.0, H*.36, 5, 1, true).translate(0, bottom + H*.5, 0), blue, 500));
+  const band = mesh(solid(new THREE.CylinderGeometry(R*1.07, R*1.06, H*.05, 5, 1, true).translate(0, bottom + H*.46, 0), '#f2d43a', 501));
+  b.torso.add(vest, band);
+  const cap = mesh(solid(new THREE.CylinderGeometry(hr*.78, hr*.94, hr*.42, 6).translate(0, hh*.9, 0), blue, 502));
+  const brim = mesh(solid(new THREE.CylinderGeometry(hr*.55, hr*.55, hr*.06, 6).scale(1, 1, 1.25).translate(0, hh*.74, hr*.72), darkBlue, 503));
+  b.head.add(cap, brim);
+  b.root.position.set(x, 0, z); b.root.rotation.y = Math.atan2(-x, -z);
+  rt.group.add(b.root);
+  rt.cleaner = {rt, b, home:{x, z}, state:'idle', target:null, t:0, fly:0, peck:0, headYaw:0, headGoal:0, wiggle:0, hop:null, rest:0, lookT:1,
+                step:{len:.13*BK, time:.2, h:.012*BK}};
+}
+const SCRUB_R = .55;  // radius one scrub clears around its target stain
+function updateCleaner(rt, dt){
+  const C = rt.cleaner; if (!C) return;
+  const r = C.b.root, reach = .3*BK;
+  if (C.state === 'idle'){
+    // starts a round once six or more stains have piled up
+    if (rt.poops.length >= 6 && rt.cleaning < 0) C.state = 'work';
+    else {
+      const dx = C.home.x - r.position.x, dz = C.home.z - r.position.z;
+      if (Math.hypot(dx, dz) > .05){
+        faceTo(C, Math.atan2(dx, dz), dt); stepToward(C, C.home.x, C.home.z, dt);
+        // can't get home past something: just settle where it is
+        C.homeT = (C.homeT || 0) + dt;
+        if (C.homeT > 4){ C.home = {x:r.position.x, z:r.position.z}; C.homeT = 0; }
+      }
+      else if ((C.lookT -= dt) < 0){ C.lookT = 1 + Math.random()*2; C.headGoal = (Math.random() - .5)*1.4; }
+    }
+  } else if (C.state === 'work'){
+    if (!rt.poops.length || rt.cleaning >= 0){
+      if (!rt.poops.length) toast('청소부가 다 치웠어요', `${PLACES[rt.id].name} 바닥이 반짝반짝해요`);
+      C.state = 'idle'; C.target = null;
+    } else {
+      if (!C.target || !rt.poops.includes(C.target)){
+        let bd = 1e9;
+        for (const m of rt.poops){ const d = m.position.distanceToSquared(r.position); if (d < bd){ bd = d; C.target = m; } }
+        C.walkT = 0;
+      }
+      const p = C.target.position, dx = p.x - r.position.x, dz = p.z - r.position.z, d = Math.hypot(dx, dz);
+      faceTo(C, Math.atan2(dx, dz), dt); C.headGoal = 0;
+      C.walkT += dt;
+      // if something blocks the way for a while, scrub from where it stands rather than pacing forever
+      if ((d < reach + .03 || C.walkT > 3) && !C.hop){
+        // one scrub wipes every stain within a wide circle around the target
+        C.state = 'scrub'; C.t = 0;
+        C.batch = rt.poops.filter(m => m.position.distanceTo(p) < SCRUB_R);
+      }
+      else stepToward(C, p.x - dx/d*reach, p.z - dz/d*reach, dt);
+    }
+  } else if (C.state === 'scrub'){
+    C.t += dt; C.peck = Math.abs(Math.sin(C.t*Math.PI*3));
+    const batch = C.batch.filter(m => rt.poops.includes(m));
+    if (!batch.length){ C.peck = 0; C.state = 'work'; C.target = null; }
+    else {
+      for (const m of batch) m.scale.copy(m.userData.s).multiplyScalar(Math.max(.001, 1 - C.t/1.1));
+      if (C.t >= 1.1){
+        for (const m of batch) rt.group.remove(m);
+        rt.poops = rt.poops.filter(x => !batch.includes(x));
+        S.dirt[rt.id] = rt.poops.length ? Math.max(0, dirtOf(rt.id) - .03*batch.length) : 0;
+        save(); updateHUD(); C.peck = 0; C.state = 'work'; C.target = null;
+      }
+    }
+  }
+  pushOut(rt, r.position, .16*BK);
+  C.headYaw += (C.headGoal - C.headYaw)*Math.min(1, dt*8);
+  applyPose(C);
+}
+// ground disks keep their jittered outline but stay perfectly flat, so they never poke through water or tiles
+// (a function declaration, so the place builders above can use it too)
+function flatten(geo){
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) p.setY(i, 0);
+  geo.computeVertexNormals();
+}
+// ---------- 베리 마당 decor: each item placed in the yard greens the ground a little more,
+//            adds grass tufts, lets flowers bloom one by one and, from the third item on, butterflies ----------
+const yardDecor = (() => {
+  const g = new THREE.Group(); RT.yard.group.add(g);
+  // keep decor off the tree, elements and item spots
+  const avoid = {obstacles:[{x:0,z:0,r:.45},{x:-1.9,z:-.7,r:.35},{x:1.8,z:.9,r:.72},{x:1.2,z:-1.6,r:.42},
+    ...Object.values(ITEM_SPOTS.yard).map(([x, z]) => ({x, z, r:.38}))]};
+  const spot = (i, salt, rMax = 3.1) => {
+    const a = rnd(i*12.9 + salt)*Math.PI*2, d = .55 + Math.sqrt(rnd(i*7.3 + salt*3))*(rMax - .55);
+    const p = {x:Math.cos(a)*d, z:Math.sin(a)*d}; pushOut(avoid, p, .05); return p;
+  };
+  // ground: a faceted disk tinted from the white void toward a spring green
+  const disk = new THREE.Mesh(shape(new THREE.RingGeometry(.01, 3.6, 16, 4).rotateX(-Math.PI/2), .18, 600), mat);
+  const dg = disk.geometry, n = dg.attributes.position.count, faceC = [];
+  flatten(dg);
+  const greens = ['#b8e08e','#a6d67c','#c6e8a0'].map(col), voidC = col('#f7f7f4');
+  for (let i = 0; i < n; i += 3) faceC.push(greens[Math.floor(rnd(i*3.1)*3)]);
+  dg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n*3), 3));
+  disk.position.y = .003; disk.receiveShadow = true; g.add(disk);
+  const tint = t => {
+    const c = new THREE.Color(), a = dg.attributes.color;
+    for (let i = 0; i < n; i++){ c.copy(voidC).lerp(faceC[Math.floor(i/3)], t); a.setXYZ(i, c.r, c.g, c.b); }
+    a.needsUpdate = true; disk.visible = t > 0;
+  };
+  // grass tufts: three little 3-sided spikes
+  const tuftGeo = skin(merge([[0,0,.14],[.03,.02,.1],[-.025,-.02,.11]].map(([x, z, h]) =>
+    new THREE.ConeGeometry(.025, h, 3).translate(x, h/2, z))), (c,x,y) => c.set('#6fa64e').lerp(col('#9fd16f'), y/.14), 610);
+  const tufts = [];
+  for (let i = 0; i < 40; i++){
+    const p = spot(i, 1), m = mesh(tuftGeo); m.castShadow = false;
+    m.position.set(p.x, 0, p.z); m.rotation.y = rnd(i*2)*6; m.visible = false; g.add(m);
+    tufts.push({m, s:.8 + rnd(i*5)*.6, grow:0});
+  }
+  // flowers: stem + petal head + yellow middle
+  const stemGeo = solid(new THREE.CylinderGeometry(.006, .008, .16, 3).translate(0, .08, 0), '#6fa64e', 611);
+  const headGeos = ['#f2a7c3','#f7d64a','#ffffff','#b9a2e8','#f39a6b'].map((h, i) =>
+    solid(new THREE.OctahedronGeometry(.035, 0).scale(1, .55, 1).translate(0, .17, 0), h, 612 + i));
+  const midGeo = solid(new THREE.OctahedronGeometry(.013, 0).translate(0, .19, 0), '#f2c230', 620);
+  const flowers = [];
+  for (let i = 0; i < 25; i++){
+    const p = spot(i, 2), f = new THREE.Group();
+    f.add(mesh(stemGeo), mesh(headGeos[i % 5]), mesh(midGeo));
+    f.position.set(p.x, 0, p.z); f.rotation.y = rnd(i*4)*6; f.visible = false; g.add(f);
+    flowers.push({g:f, s:.8 + rnd(i*9)*.5, grow:0, started:false, ph:rnd(i)*6});
+  }
+  // butterflies: two flat triangle wings
+  const bMat = new THREE.MeshStandardMaterial({vertexColors:true, side:THREE.DoubleSide, flatShading:true, roughness:.8});
+  const wing = () => { const b = new THREE.BufferGeometry(); b.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0,0,.02, .075,0,.045, .06,0,-.05]), 3)); return b; };
+  const wingGeos = ['#ffffff','#f7d64a','#a9cdf2','#f39a6b'].map((h, i) => solid(wing(), h, 630 + i));
+  const butterflies = [];
+  for (let i = 0; i < 6; i++){
+    const b = new THREE.Group(), geo = wingGeos[i % 4];
+    const R = new THREE.Mesh(geo, bMat), L = new THREE.Mesh(geo, bMat); L.scale.x = -1;
+    b.add(R, L, mesh(solid(new THREE.CylinderGeometry(.006, .006, .06, 3).rotateX(Math.PI/2), '#3a3330', 640)));
+    const p = spot(i, 3, 2.6); b.position.set(p.x, .5, p.z); b.visible = false; g.add(b);
+    butterflies.push({g:b, R, L, to:spot(i, 4, 2.6), y:.35 + rnd(i*6)*.45, ph:rnd(i*8)*6});
+  }
+  let level = -1, bloomT = 0, t = 0;
+  return {
+    update(dt, instant){
+      t += dt;
+      const L = Math.min(5, (S.items.yard || []).length);
+      if (L !== level){ level = L; tint(L ? .25 + .75*L/5 : 0); }
+      const nT = L*8, nF = L*5, nB = Math.max(0, L - 2)*2;
+      tufts.forEach((o, i) => {
+        o.grow = instant ? +(i < nT) : Math.min(1, Math.max(0, o.grow + (i < nT ? dt*1.2 : -dt*3)));
+        o.m.visible = o.grow > 0; o.m.scale.setScalar(Math.max(.001, o.grow*o.s));
+      });
+      // flowers open one at a time, about a second apart
+      bloomT -= dt;
+      const next = flowers.find((o, i) => i < nF && !o.started);
+      if (next && (instant || bloomT <= 0)){ next.started = true; bloomT = 1.2; }
+      flowers.forEach((o, i) => {
+        if (i >= nF){ o.started = false; o.grow = 0; }
+        else if (instant){ o.started = true; o.grow = 1; }
+        else if (o.started) o.grow = Math.min(1, o.grow + dt*.9);
+        o.g.visible = o.grow > 0;
+        const k = o.grow < 1 ? o.grow*(1 + Math.sin(o.grow*Math.PI)*.25) : 1;
+        o.g.scale.setScalar(Math.max(.001, k*o.s));
+        o.g.rotation.z = Math.sin(t*1.6 + o.ph)*.06;
+      });
+      if (instant) while (flowers.some((o, i) => i < nF && !o.started)) flowers.find((o, i) => i < nF && !o.started).started = true;
+      butterflies.forEach((b, i) => {
+        b.g.visible = i < nB;
+        if (!b.g.visible) return;
+        const p = b.g.position, dx = b.to.x - p.x, dz = b.to.z - p.z, d = Math.hypot(dx, dz);
+        if (d < .1) b.to = spot(Math.floor(t*10) + i*31, 5 + i, 2.6);
+        else { p.x += dx/d*.35*dt; p.z += dz/d*.35*dt; b.g.rotation.y = Math.atan2(dx, dz); }
+        p.y = b.y + Math.sin(t*2 + b.ph)*.08;
+        const f = .25 + .95*Math.abs(Math.sin(t*16 + b.ph));
+        b.R.rotation.z = f; b.L.rotation.z = -f;
+      });
+    },
+  };
+})();
+// ---------- 작은 물가 decor, in stages by the number of items placed there:
+//   1+ blue-green grass and stones ringing the pond · 2+ lily pads · 3+ pink wildflowers on the rocks · 5 lotus blooms ----------
+const pondDecor = (() => {
+  const g = new THREE.Group(); RT.pond.group.add(g);
+  const W = {x:1.5, z:-1.1, rx:2.0, rz:1.45};
+  const inWater = (x, z, k = 1) => ((x - W.x)/(W.rx*k))**2 + ((z - W.z)/(W.rz*k))**2 < 1;
+  const avoid = {obstacles:[{x:-.6, z:.5, r:.42}, ...Object.values(ITEM_SPOTS.pond).map(([x, z]) => ({x, z, r:.38}))]};
+  const landSpot = (i, salt) => {
+    for (let k = 0; k < 14; k++){
+      const a = rnd(i*12.9 + salt + k*3.3)*Math.PI*2, d = .4 + Math.sqrt(rnd(i*7.3 + salt*3 + k))*2.9;
+      const p = {x:Math.cos(a)*d, z:Math.sin(a)*d}; pushOut(avoid, p, .05);
+      if (!inWater(p.x, p.z, 1.15)) return p;
+    }
+    return {x:-2.2, z:1.6};
+  };
+  const waterSpot = (i, salt, k = .78) => {
+    const a = rnd(i*5.1 + salt)*Math.PI*2, d = .15 + Math.sqrt(rnd(i*9.7 + salt))*(k - .15);
+    return {x:W.x + Math.cos(a)*W.rx*d, z:W.z + Math.sin(a)*W.rz*d};
+  };
+  // ground: faceted disk tinted toward blue-green grass
+  const disk = new THREE.Mesh(shape(new THREE.RingGeometry(.01, 3.7, 16, 4).rotateX(-Math.PI/2), .18, 700), mat);
+  const dg = disk.geometry, n = dg.attributes.position.count, faceC = [];
+  flatten(dg);
+  const greens = ['#9fd3a0','#8cc995','#addba8'].map(col), voidC = col('#f7f7f4');
+  for (let i = 0; i < n; i += 3) faceC.push(greens[Math.floor(rnd(i*2.7)*3)]);
+  dg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n*3), 3));
+  disk.position.y = .002; disk.receiveShadow = true; g.add(disk);
+  const tint = t => {
+    const c = new THREE.Color(), a = dg.attributes.color;
+    for (let i = 0; i < n; i++){ c.copy(voidC).lerp(faceC[Math.floor(i/3)], t); a.setXYZ(i, c.r, c.g, c.b); }
+    a.needsUpdate = true; disk.visible = t > 0;
+  };
+  const pop = (obj, s, salt) => ({g:obj, s, grow:0, started:false, ph:rnd(salt)*6});
+  const add = (list, obj, s, salt) => { obj.visible = false; g.add(obj); list.push(pop(obj, s, salt)); };
+  // blue-green grass tufts on the banks
+  const tuftGeo = skin(merge([[0,0,.13],[.03,.02,.1],[-.025,-.02,.11]].map(([x, z, h]) =>
+    new THREE.ConeGeometry(.025, h, 3).translate(x, h/2, z))), (c,x,y) => c.set('#4f9a6a').lerp(col('#8fd0a0'), y/.13), 710);
+  const tufts = [];
+  for (let i = 0; i < 35; i++){ const p = landSpot(i, 1), m = mesh(tuftGeo); m.castShadow = false; m.position.set(p.x, 0, p.z); m.rotation.y = rnd(i)*6; add(tufts, m, .8 + rnd(i*5)*.6, i); }
+  // stones lining the pond: walk round the edge laying big and small stones with small natural gaps,
+  // nudged in and out of the waterline, with the odd pebble tucked behind
+  const stoneGeos = ['#c9c4ba','#b3aea4','#d6d1c6','#a8a399'].map((h, i) => solid(new THREE.DodecahedronGeometry(.08, 0).scale(1, .55, 1), h, 720 + i, .02));
+  const stones = [];
+  const lay = (a, size, out, k) => {
+    const m = mesh(stoneGeos[k % 4]);
+    m.position.set(W.x + Math.cos(a)*W.rx*out, size*.25, W.z + Math.sin(a)*W.rz*out);
+    m.rotation.set((rnd(k*5) - .5)*.3, rnd(k*7)*6, 0);
+    add(stones, m, size/.08, k + 50);
+  };
+  for (let a = 0, k = 0; a < Math.PI*2 - .05; k++){
+    const big = rnd(k*3.7) < .45, size = big ? .12 + rnd(k*5.3)*.07 : .05 + rnd(k*2.9)*.04;
+    lay(a, size, 1.02 + (rnd(k*8.1) - .5)*.07, k);
+    if (!big && rnd(k*6.6) < .3) lay(a + .02, .04 + rnd(k)*.02, 1.1 + rnd(k*4.4)*.05, k + 500);
+    // advance by this stone's width plus a small gap, measured along the ellipse
+    const speed = Math.hypot(W.rx*Math.sin(a), W.rz*Math.cos(a));
+    a += (size*1.55 + .025 + rnd(k*9.2)*.05)/speed;
+  }
+  // lily pads: flat discs with a notch
+  const padGeo = skin(shape(new THREE.CircleGeometry(.13, 7, .35, Math.PI*2 - .7).rotateX(-Math.PI/2), .015, 730),
+    (c,x,y,z) => c.set('#4f9a4a').lerp(col('#78bd5e'), ss(.13, 0, Math.hypot(x, z))), 730);
+  const pads = [];
+  for (let i = 0; i < 10; i++){
+    const p = waterSpot(i, 3), m = mesh(padGeo); m.castShadow = false;
+    m.position.set(p.x, .009, p.z); m.rotation.y = rnd(i*13)*6; add(pads, m, .75 + rnd(i*4)*.6, i + 80);
+  }
+  // pink wildflowers tucked on and around the shore rocks
+  const ROCKS = [[-1.6,1.3,.16],[-1.25,.8,.14],[-.9,.3,.12]];
+  const stem = solid(new THREE.CylinderGeometry(.005, .006, .1, 3).translate(0, .05, 0), '#5f9a55', 740);
+  const pinks = ['#f29ac0','#f7b8d3','#e57fae'].map((h, i) => solid(new THREE.OctahedronGeometry(.024, 0).scale(1, .55, 1).translate(0, .105, 0), h, 741 + i));
+  const rockFlowers = [];
+  for (let i = 0; i < 18; i++){
+    const [rx, rz, rr] = ROCKS[i % 3], a = rnd(i*6.1)*Math.PI*2, onTop = i % 2 === 0, d = onTop ? rr*.4*rnd(i*2.3) : rr*(1 + rnd(i*3.9)*.5);
+    const f = new THREE.Group(); f.add(mesh(stem), mesh(pinks[i % 3]));
+    f.position.set(rx + Math.cos(a)*d, onTop ? .065 : 0, rz + Math.sin(a)*d);
+    add(rockFlowers, f, .8 + rnd(i*8)*.5, i + 120);
+  }
+  // lotus: six tilted pink petals and a yellow heart, sitting on the first four pads
+  const petalGeo = solid(new THREE.ConeGeometry(.028, .09, 3).translate(0, .045, 0), '#f4a6c6', 750);
+  const heartGeo = solid(new THREE.OctahedronGeometry(.022, 0).scale(1, .6, 1).translate(0, .03, 0), '#f2cf4a', 751);
+  const lotus = [];
+  for (let i = 0; i < 4; i++){
+    const l = new THREE.Group();
+    for (let k = 0; k < 6; k++){ const p = mesh(petalGeo); p.rotation.set(.55, k*Math.PI/3, 0, 'YXZ'); l.add(p); }
+    l.add(mesh(heartGeo));
+    l.position.copy(pads[i].g.position).setY(.012);
+    add(lotus, l, 1, i + 160);
+  }
+  let level = -1, bloomT = 0, t = 0;
+  // pops each list up to n items: one at a time (gap seconds apart) or all at once
+  const grow = (list, n, dt, instant, gap, state) => {
+    state.t -= dt;
+    const next = list.find((o, i) => i < n && !o.started);
+    if (next && (instant || state.t <= 0)){ next.started = true; state.t = gap; }
+    list.forEach((o, i) => {
+      if (i >= n){ o.started = false; o.grow = 0; }
+      else if (instant){ o.started = true; o.grow = 1; }
+      else if (o.started) o.grow = Math.min(1, o.grow + dt*1.1);
+      o.g.visible = o.grow > 0;
+      const k = o.grow < 1 ? o.grow*(1 + Math.sin(o.grow*Math.PI)*.25) : 1;
+      o.g.scale.setScalar(Math.max(.001, k*o.s));
+    });
+    if (instant) list.forEach((o, i) => { if (i < n) o.started = true; });
+  };
+  const st = {tufts:{t:0}, stones:{t:0}, pads:{t:0}, flowers:{t:0}, lotus:{t:0}};
+  return {
+    update(dt, instant){
+      t += dt;
+      const L = Math.min(5, (S.items.pond || []).length);
+      if (L !== level){ level = L; tint(L ? .25 + .75*L/5 : 0); }
+      grow(tufts, L*7, dt, instant, .15, st.tufts);
+      // the ring closes by stage 3, laid in order around the pond
+      grow(stones, Math.min(stones.length, Math.ceil(L*stones.length/3)), dt, instant, .06, st.stones);
+      grow(pads, L >= 2 ? Math.min(10, (L - 1)*3) : 0, dt, instant, .6, st.pads);
+      grow(rockFlowers, L >= 3 ? (L - 2)*6 : 0, dt, instant, .5, st.flowers);
+      grow(lotus, L >= 5 ? 4 : 0, dt, instant, 1.6, st.lotus);
+      // pads and lotus bob gently on the water
+      pads.forEach((o, i) => { o.g.position.y = .009 + Math.sin(t*1.3 + o.ph)*.003; o.g.rotation.y += Math.sin(t*.4 + i)*.0008; });
+      lotus.forEach(o => { o.g.position.y = .012 + Math.sin(t*1.3 + o.ph)*.003; });
+      rockFlowers.forEach(o => { o.g.rotation.z = Math.sin(t*1.8 + o.ph)*.07; });
+    },
+  };
+})();
+// ---------- 광장 벤치 decor: a deliberately man-made, symmetric square, built up stage by stage ----------
+//   1 a matching lamppost · 2 a facing bench · 3 rectangular stone planters on both sides
+//   4 planters and clipped cube hedges framing the back · 5 a clock tower (showing the real time)
+const plazaDecor = (() => {
+  const rt = RT.plaza, g = new THREE.Group(); rt.group.add(g);
+  const stone = '#c9c3b8', soil = '#6b4f3a', wood = '#a4774f', iron = '#5b5f66', hedge = '#4f8a4a';
+  const stages = [];
+  const stage = (need, build, obs = [], specs = []) => {
+    const sg = new THREE.Group(); build(sg); sg.visible = false; g.add(sg);
+    stages.push({need, g:sg, obs, specs, grow:0, on:false, refs:[]});
+  };
+  const lamp = (x, z) => {
+    const l = new THREE.Group(); l.position.set(x, 0, z);
+    l.add(mesh(solid(new THREE.CylinderGeometry(.035, .05, 1.9, 5).translate(0, .95, 0), '#4c5058', 130)),
+          mesh(solid(new THREE.OctahedronGeometry(.14, 0).scale(1, 1.2, 1).translate(0, 1.98, 0), '#fbe7a4', 131)));
+    return l;
+  };
+  // flowers in planters: one stem shape, a head per colour
+  // short stems, big blooms: each head is a wide petal octahedron with a small yellow heart on top
+  const stem = solid(new THREE.CylinderGeometry(.006, .007, .04, 3).translate(0, .02, 0), '#4f8a4a', 810);
+  const heart = solid(new THREE.OctahedronGeometry(.016, 0).scale(1, .6, 1).translate(0, .072, 0), '#f6d24a', 812);
+  const heads = {};
+  const head = h => heads[h] ??= solid(new THREE.OctahedronGeometry(.052, 0).scale(1, .5, 1).translate(0, .055, 0), h, 811);
+  const planter = (x, z, w, d, cols) => {
+    const p = new THREE.Group(); p.position.set(x, 0, z);
+    p.add(mesh(solid(new THREE.BoxGeometry(w, .18, d).translate(0, .09, 0), stone, 800)));
+    p.add(mesh(solid(new THREE.BoxGeometry(w - .08, .02, d - .08).translate(0, .18, 0), soil, 801)));
+    // a neat grid, colours alternating like a chequerboard
+    const iw = w - .14, id = d - .14, nx = Math.max(1, Math.round(iw/.11)), nz = Math.max(1, Math.round(id/.11));
+    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++){
+      const f = new THREE.Group(); f.add(mesh(stem), mesh(head(cols[(i + j) % cols.length])), mesh(heart));
+      f.position.set(-iw/2 + (i + .5)*iw/nx, .19, -id/2 + (j + .5)*id/nz); f.rotation.y = rnd(i*7 + j*3 + x)*Math.PI; p.add(f);
+    }
+    return p;
+  };
+  const cubeHedge = (x, z) => { const m = mesh(solid(new THREE.BoxGeometry(.24, .24, .24).translate(0, .12, 0), hedge, 820, .01)); m.position.set(x, 0, z); return m; };
+
+  stage(1, sg => sg.add(lamp(1.9, -1.4)), [[1.9,-1.4,.12]]);
+  stage(2, sg => {
+    const b = new THREE.Group(); b.position.set(0, 0, 1.4); b.rotation.y = Math.PI; sg.add(b);
+    const seat = mesh(solid(new THREE.BoxGeometry(1.3, .06, .38), wood, 132)); seat.position.y = .42; b.add(seat);
+    const back = mesh(solid(new THREE.BoxGeometry(1.3, .26, .05), wood, 133)); back.position.set(0, .66, -.18); back.rotation.x = -.12; b.add(back);
+    for (const sx of [-.55, .55]){ const leg = mesh(solid(new THREE.BoxGeometry(.06, .42, .34), iron, 134)); leg.position.set(sx, .21, 0); b.add(leg); }
+  }, [[-.5,1.4,.27],[0,1.4,.27],[.5,1.4,.27]], [[-.35,.45,1.42],[.2,.45,1.4],[-.25,0,1.4],[.3,0,1.45]]);
+  stage(3, sg => sg.add(planter(-1.6, .45, .5, 1.1, ['#e0394a','#fff4f0','#ff8fb0']), planter(1.6, .45, .5, 1.1, ['#e0394a','#fff4f0','#ff8fb0'])),
+    [[-1.6,.1,.3],[-1.6,.8,.3],[1.6,.1,.3],[1.6,.8,.3]]);
+  stage(4, sg => sg.add(planter(-.95, -2.15, 1.0, .42, ['#ffb52e','#fff4f0','#b98be8']), planter(.95, -2.15, 1.0, .42, ['#ffb52e','#fff4f0','#b98be8']),
+                        cubeHedge(-1.65, -2.15), cubeHedge(1.65, -2.15)),
+    [[-1.2,-2.15,.25],[-.7,-2.15,.25],[1.2,-2.15,.25],[.7,-2.15,.25],[-1.65,-2.15,.17],[1.65,-2.15,.17]]);
+  // clock tower: stone base, brick-toned shaft, cream clock block with four faces, slate pyramid roof
+  const hands = [];
+  stage(5, sg => {
+    const t = new THREE.Group(); t.position.set(0, 0, -2.35); sg.add(t);
+    t.add(mesh(solid(new THREE.BoxGeometry(.56, .22, .56).translate(0, .11, 0), stone, 830)));
+    t.add(mesh(solid(new THREE.BoxGeometry(.38, 1.5, .38).translate(0, .97, 0), '#b8917a', 831)));
+    t.add(mesh(solid(new THREE.BoxGeometry(.44, .05, .44).translate(0, 1.72, 0), stone, 832)));
+    t.add(mesh(solid(new THREE.BoxGeometry(.46, .42, .46).translate(0, 1.95, 0), '#ece3d3', 833)));
+    t.add(mesh(solid(new THREE.ConeGeometry(.36, .46, 4).rotateY(Math.PI/4).translate(0, 2.39, 0), '#5d6b7a', 834)));
+    t.add(mesh(solid(new THREE.OctahedronGeometry(.05, 0).translate(0, 2.67, 0), '#e8c24a', 835)));
+    const faceGeo = solid(new THREE.CircleGeometry(.15, 12), '#fbf8f0', 836);
+    const hourGeo = solid(new THREE.BoxGeometry(.022, .085, .008).translate(0, .042, 0), '#2b2a27', 837);
+    const minGeo = solid(new THREE.BoxGeometry(.015, .125, .008).translate(0, .062, 0), '#2b2a27', 838);
+    for (let k = 0; k < 4; k++){
+      const f = new THREE.Group(), a = k*Math.PI/2;
+      f.position.set(Math.sin(a)*.232, 1.95, Math.cos(a)*.232); f.rotation.y = a;
+      const h = mesh(hourGeo), m = mesh(minGeo); h.position.z = m.position.z = .006;
+      f.add(mesh(faceGeo), h, m); t.add(f); hands.push({h, m});
+    }
+  }, [[0,-2.35,.36]]);
+
+  return {
+    update(dt, instant){
+      const L = Math.min(5, (S.items.plaza || []).length);
+      for (const s of stages){
+        const want = L >= s.need;
+        if (want && !s.on){
+          s.on = true; s.grow = instant ? 1 : 0;
+          s.refs = s.obs.map(([x, z, r]) => { const o = {x, z, r, extra:true}; rt.obstacles.push(o); return o; });
+          s.specRefs = s.specs.map(([x, y, z]) => { const sp = {kind:'loaf', pos:new THREE.Vector3(x, y, z), yaw:Math.PI + (Math.random()-.5)*.6, occupant:null}; rt.specials.push(sp); return sp; });
+        } else if (!want && s.on){
+          s.on = false; s.grow = 0;
+          rt.obstacles = rt.obstacles.filter(o => !s.refs.includes(o));
+          rt.specials = rt.specials.filter(sp => !s.specRefs.includes(sp));
+        }
+        if (s.on && s.grow < 1) s.grow = Math.min(1, s.grow + dt*1.4);
+        s.g.visible = s.grow > 0;
+        const k = s.grow < 1 ? s.grow*(1 + Math.sin(s.grow*Math.PI)*.15) : 1;
+        s.g.scale.set(1, Math.max(.001, k), 1);  // rises out of the bricks
+      }
+      if (hands.length && stages[4].on){
+        const d = new Date(), mins = d.getMinutes() + d.getSeconds()/60, hrs = (d.getHours() % 12) + mins/60;
+        for (const {h, m} of hands){ h.rotation.z = -hrs/12*Math.PI*2; m.rotation.z = -mins/60*Math.PI*2; }
+      }
+    },
+  };
+})();
+// ======================================================================
+//  Hidden objects: a place's secret item opens once all five shop items stand there.
+//  Until bought it is listed only as "???".
+// ======================================================================
+const HIDDEN = {
+  plaza: {name:'롱보드 하프파이프', cost:300,
+          desc:'아치를 뒤집은 모양의 하프파이프와 롱보드예요. 가끔 새가 와서 롱보드를 타요. 광장의 새들이 아주 가끔 특이한 행동을 해요.'},
+};
+const hiddenReady = pid => ITEM_ORDER.every(k => (S.items[pid] || []).includes(k));
+const HP = {x:0, z:.45, L:.8, h:.38, W:.62};          // the half-pipe, between the two benches
+const hpY = x => HP.h*(x/HP.L)**2;                     // ramp height at local x
+function geoFrom(p, hex, cols){
+  const b = new THREE.BufferGeometry(); b.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+  if (!cols){ const k = col(hex); cols = []; for (let i = 0; i < p.length/3; i++) cols.push(k.r, k.g, k.b); }
+  b.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); b.computeVertexNormals();
+  return b;
+}
+function placeHidden(pid, pop){
+  const rt = RT[pid]; if (pid !== 'plaza' || rt.hiddenObj) return;
+  const {L, h, W} = HP, N = 12, sp = [], sc = [], wp = [], c = new THREE.Color();
+  const woodA = col('#d9b98a'), woodB = col('#cba876');
+  for (let i = 0; i < N; i++){
+    const x0 = -L + 2*L*i/N, x1 = -L + 2*L*(i + 1)/N, y0 = hpY(x0), y1 = hpY(x1);
+    sp.push(x0,y0,-W/2, x0,y0,W/2, x1,y1,W/2,  x0,y0,-W/2, x1,y1,W/2, x1,y1,-W/2);
+    c.copy(i % 2 ? woodA : woodB); for (let v = 0; v < 6; v++) sc.push(c.r, c.g, c.b);
+    // solid side panels under the curve
+    wp.push(x0,0,W/2, x1,0,W/2, x1,y1,W/2,  x0,0,W/2, x1,y1,W/2, x0,y0,W/2);
+    wp.push(x0,0,-W/2, x1,y1,-W/2, x1,0,-W/2,  x0,0,-W/2, x0,y0,-W/2, x1,y1,-W/2);
+  }
+  const g = new THREE.Group(); g.position.set(HP.x, 0, HP.z);
+  g.add(mesh(geoFrom(sp, null, sc)), mesh(geoFrom(wp, '#a98258')));
+  for (const s of [-1, 1]){
+    const deck = mesh(solid(new THREE.BoxGeometry(.24, h, W).translate(0, h/2, 0), '#a98258', 900)); deck.position.x = s*(L + .12);
+    const top = mesh(solid(new THREE.BoxGeometry(.24, .015, W).translate(0, h + .008, 0), '#cba876', 901)); top.position.x = s*(L + .12);
+    const rail = mesh(solid(new THREE.CylinderGeometry(.016, .016, W, 5).rotateX(Math.PI/2), '#9aa3ad', 902)); rail.position.set(s*L, h + .01, 0);
+    g.add(deck, top, rail);
+  }
+  rt.group.add(g);
+  // the longboard, parked at the bottom of the ramp until someone rides it
+  const rider = new THREE.Group(); rider.position.set(HP.x, .02, HP.z);
+  rider.add(mesh(solid(new THREE.BoxGeometry(.3, .014, .085), '#2b2b30', 903)));
+  for (const [x, z] of [[-.1,-.03],[-.1,.03],[.1,-.03],[.1,.03]]){
+    const w = mesh(solid(new THREE.BoxGeometry(.025, .025, .02), '#f2d43a', 904)); w.position.set(x, -.015, z); rider.add(w);
+  }
+  g.add(rider); rider.position.set(0, .02, 0);
+  rt.hiddenObj = {g, rider};
+  rt.elements.hidden = g;
+  for (const x of [-.75, -.25, .25, .75]) addObstacle(rt, HP.x + x, HP.z, .3, true);
+  if (pop){ g.userData.target = 1; g.scale.setScalar(.001); g.userData.pop = 0; }
+}
+function buyHidden(pid){
+  const H = HIDDEN[pid];
+  if (!H || S.hidden[pid] || !hiddenReady(pid) || S.feathers < H.cost) return;
+  S.feathers -= H.cost; S.hidden[pid] = true; save();
+  placeHidden(pid, true);
+  toast(`히든 오브젝트 · ${H.name}`, '무언가 재미있는 일이 일어날 것 같아요…', true);
+  updateHUD(); renderShop();
+}
+// onboarding: announce once per place when its hidden object becomes buyable
+function checkHiddenUnlock(pid){
+  if (!HIDDEN[pid] || S.hidden[pid] || S.hiddenTold[pid] || !hiddenReady(pid)) return;
+  S.hiddenTold[pid] = true; save();
+  toast('히든 오브젝트가 열렸다!', `${PLACES[pid].name} 상점 맨 아래 ??? 를 확인해 보세요`, true);
+  $('openShop').classList.add('ping');
+}
+
+// ---------- actors for scripted moments (skater, smoker, kissing couple) ----------
+const skyPoint = () => { const a = Math.random()*Math.PI*2; return new THREE.Vector3(Math.cos(a)*9, 4.5, Math.sin(a)*9); };
+function actor(rt, id){
+  const b = buildBird(id); rt.group.add(b.root);
+  return {rt, b, id, fly:1, peck:0, headYaw:0, headGoal:0, wiggle:0, hop:null, rest:0, t:0};
+}
+function flyTo(A, from, to){
+  A.p0 = from.clone(); A.p2 = to.clone(); A.p1 = from.clone().lerp(to, .6); A.p1.y = Math.max(from.y, to.y) + .8;
+  A.dur = .6 + from.distanceTo(to)/4; A.t = 0; A.b.root.position.copy(from);
+}
+function flyStep(A, dt, landing){
+  A.t = Math.min(1, A.t + dt/A.dur);
+  const u = landing ? 1 - (1 - A.t)**2 : A.t*A.t, r = A.b.root;
+  bez(A, u, r.position); bez(A, Math.min(1, u + .02), v3);
+  if (Math.hypot(v3.x - r.position.x, v3.z - r.position.z) > 1e-4) faceTo(A, Math.atan2(v3.x - r.position.x, v3.z - r.position.z), dt*3);
+  A.fly = landing ? (A.t < .85 ? 1 : 1 - (A.t - .85)/.15) : Math.min(1, A.t*6);
+  return A.t >= 1;
+}
+const removeActor = A => A.b.root.parent?.remove(A.b.root);
+// smoke puffs and hearts: small shapes that drift up and fade
+const puffGeo = new THREE.IcosahedronGeometry(.025, 0);
+const heartGeo = merge([new THREE.OctahedronGeometry(.02, 0).translate(-.016, .012, 0), new THREE.OctahedronGeometry(.02, 0).translate(.016, .012, 0),
+                        new THREE.ConeGeometry(.032, .045, 4).rotateX(Math.PI).translate(0, -.012, 0)]);
+function puff(rt, pos, heart){
+  const m = new THREE.Mesh(heart ? heartGeo : puffGeo, new THREE.MeshBasicMaterial({color:heart ? 0xff6f9f : 0xd9d6d0, transparent:true, opacity:heart ? .95 : .6, depthWrite:false}));
+  m.position.copy(pos); rt.group.add(m); rt.puffs.push({m, t:0, life:heart ? 1.6 : 1.9, heart});
+}
+function updatePuffs(rt, dt){
+  rt.puffs = rt.puffs.filter(p => {
+    p.t += dt; const k = p.t/p.life;
+    p.m.position.y += dt*(p.heart ? .22 : .16); p.m.position.x += Math.sin(p.t*3)*dt*.04;
+    p.m.scale.setScalar(p.heart ? 1 + Math.sin(k*Math.PI)*.3 : 1 + k*1.8);
+    p.m.material.opacity = (p.heart ? .95 : .6)*(1 - k);
+    if (k >= 1){ rt.group.remove(p.m); p.m.material.dispose(); return false; }
+    return true;
+  });
+}
+
+// a bird rides the longboard back and forth over the half-pipe, popping a little air at each lip
+function startSkater(rt){
+  const H = rt.hiddenObj; if (!H || rt.extras.some(e => e.kind === 'skate')) return;
+  const pool = PLACES.plaza.species, A = actor(rt, pool[Math.floor(Math.random()*pool.length)]), rider = H.rider;
+  rider.getWorldPosition(v3); flyTo(A, skyPoint(), v3.clone().setY(.04));
+  let state = 'in', ph = 0, yaw = Math.PI/2;
+  rt.extras.push({kind:'skate', actors:[A], update(dt){
+    if (state === 'in'){
+      if (flyStep(A, dt, true)){ state = 'ride'; A.fly = 0; rider.attach(A.b.root); A.b.root.position.set(0, .012, 0); A.b.root.rotation.set(0, yaw, 0); }
+    } else if (state === 'ride'){
+      const prev = ph; ph += dt*2.3;
+      const x = HP.L*.85*Math.sin(ph), air = Math.max(0, Math.abs(Math.sin(ph)) - .93)*1.4;
+      rider.position.set(x, hpY(x) + .02 + air, 0);
+      rider.rotation.z = Math.atan(2*HP.h*x/HP.L**2);
+      // kick-turn at each lip: the bird swings round to face the way it's about to roll
+      const want = Math.cos(ph) >= 0 ? Math.PI/2 : -Math.PI/2;
+      yaw += (want - yaw)*Math.min(1, dt*9); A.b.root.rotation.y = yaw;
+      A.fly = .16 + air*2.5;  // wings held out for balance, flapping wildly in the air
+      if (Math.floor(prev/Math.PI + .5) !== Math.floor(ph/Math.PI + .5) && Math.random() < .3){ rider.getWorldPosition(v3); dropFeather(rt, v3); }
+      if (ph >= Math.PI*8){
+        state = 'out'; rt.group.attach(A.b.root); rider.position.set(0, .02, 0); rider.rotation.set(0, 0, 0);
+        flyTo(A, A.b.root.position, skyPoint());
+      }
+    } else if (flyStep(A, dt, false)){ removeActor(A); return false; }
+    applyPose(A); return true;
+  }});
+}
+// rare: a pigeon stands at the foot of a lamppost holding a cigarette in its wing,
+// lifting the wing to its beak for a drag, then letting out a puff
+function startSmoker(rt){
+  const lamps = [[-1.9,-1.4]]; if ((S.items.plaza || []).length >= 1) lamps.push([1.9,-1.4]);
+  const [lx, lz] = lamps[Math.floor(Math.random()*lamps.length)];
+  const A = actor(rt, 'pigeon'), t = TPL.large, wing = A.b.wings[1];
+  // the cigarette sits near the wing tip (the wing hangs down its local -y)
+  const cig = new THREE.Group();
+  cig.add(mesh(solid(new THREE.CylinderGeometry(.03, .03, .32, 5).rotateX(Math.PI/2).translate(0, 0, .16), '#f4f1ea', 910)));
+  const tip = mesh(solid(new THREE.CylinderGeometry(.033, .033, .05, 5).rotateX(Math.PI/2).translate(0, 0, .33), '#ff7a2f', 911)); cig.add(tip);
+  cig.position.set(-.02, -t.L*.8, .04); cig.rotation.set(-.6, -.5, 0); wing.add(cig);
+  // stand beside the pole on the side facing the middle of the square
+  const d = Math.hypot(lx, lz), spot = new THREE.Vector3(lx - lx/d*.17, 0, lz - lz/d*.17);
+  flyTo(A, skyPoint(), spot);
+  let state = 'in', life = 0, c = 0, exhaled = false, tipT = .8;
+  rt.extras.push({kind:'smoke', actors:[A], update(dt){
+    if (state === 'in'){
+      if (flyStep(A, dt, true)){ state = 'smoke'; A.fly = 0; A.b.root.position.y = 0; A.b.root.rotation.y = Math.atan2(-lx, -lz); }
+      applyPose(A);
+    } else if (state === 'smoke'){
+      life += dt; c = (c + dt) % 3.2;
+      // one cycle: lift the wing to the beak, hold for a drag, lower it, rest
+      const lift = c < .5 ? ss(0, .5, c) : c < 1.1 ? 1 : c < 1.6 ? 1 - ss(1.1, 1.6, c) : 0;
+      if (c > 1.3 && !exhaled){
+        exhaled = true; A.b.head.getWorldPosition(v3); v3.y += .03;
+        puff(rt, v3); puff(rt, v3.clone().add(new THREE.Vector3(.02, .02, .01)));
+      }
+      if (c < 1) exhaled = false;
+      if ((tipT -= dt) <= 0){ tipT = .9 + Math.random()*.5; tip.getWorldPosition(v3); puff(rt, v3); }
+      A.headGoal = lift > .5 ? 0 : A.headGoal;
+      if (lift === 0 && Math.random() < dt*.5) A.headGoal = (Math.random() - .5)*.8;
+      A.headYaw += (A.headGoal - A.headYaw)*Math.min(1, dt*4);
+      applyPose(A);
+      // swing the right wing up and inward so the cigarette reaches the beak
+      wing.rotation.set(.34 + (-2.35 - .34)*lift, 0, .03 + (-.55 - .03)*lift);
+      A.b.neck.rotation.x += -.25*lift;  // chin up while taking a drag
+      if (life > 15){ state = 'out'; flyTo(A, A.b.root.position, skyPoint()); }
+    } else {
+      if (flyStep(A, dt, false)){ removeActor(A); return false; }
+      applyPose(A);
+    }
+    return true;
+  }});
+}
+// rare: two birds sit side by side on the facing bench and give each other little beak kisses
+function startCouple(rt){
+  const pool = ['pigeon','crow'], id = pool[Math.floor(Math.random()*pool.length)];
+  const A1 = actor(rt, id), A2 = actor(rt, id), seat = {x:0, y:.45, z:1.42};
+  flyTo(A1, skyPoint(), new THREE.Vector3(seat.x - .15, seat.y, seat.z));
+  flyTo(A2, skyPoint(), new THREE.Vector3(seat.x + .15, seat.y, seat.z));
+  let state = 'in', life = 0, kissed = false;
+  rt.extras.push({kind:'couple', actors:[A1, A2], update(dt){
+    if (state === 'in'){
+      const d1 = A1.t >= 1 || flyStep(A1, dt, true), d2 = A2.t >= 1 || flyStep(A2, dt, true);
+      if (d1 && d2){
+        state = 'sit'; A1.fly = A2.fly = 0; setSit(A1, 'loaf'); setSit(A2, 'loaf');
+        A1.b.root.rotation.y = Math.PI/2; A2.b.root.rotation.y = -Math.PI/2;
+      }
+    } else if (state === 'sit'){
+      life += dt;
+      const pulse = Math.max(0, Math.sin(life*1.5))**6, gap = .15 - .08*pulse;
+      A1.b.root.position.x = seat.x - gap; A2.b.root.position.x = seat.x + gap;
+      A1.peck = A2.peck = pulse*.25;
+      if (pulse > .9 && !kissed){ kissed = true; puff(rt, new THREE.Vector3(seat.x, seat.y + .24, seat.z), true); }
+      if (pulse < .1) kissed = false;
+      if (life > 13){
+        state = 'out'; setSit(A1, null); setSit(A2, null); A1.peck = A2.peck = 0;
+        flyTo(A1, A1.b.root.position, skyPoint()); flyTo(A2, A2.b.root.position, skyPoint());
+      }
+    } else {
+      const e1 = flyStep(A1, dt, false), e2 = flyStep(A2, dt, false);
+      if (e1 && e2){ removeActor(A1); removeActor(A2); return false; }
+    }
+    applyPose(A1); applyPose(A2); return true;
+  }});
+}
+function updateHidden(rt, dt){
+  if (rt.hiddenObj){
+    rt.skateT = (rt.skateT ?? 3) - dt;
+    if (rt.skateT <= 0){ rt.skateT = 14 + Math.random()*10; startSkater(rt); }
+    // every 10 s there's a small (7%) chance of one odd moment
+    rt.oddT = (rt.oddT ?? 10) - dt;
+    if (rt.oddT <= 0){
+      rt.oddT = 10;
+      if (Math.random() < .07 && !rt.extras.some(e => e.kind !== 'skate')) (Math.random() < .5 ? startSmoker : startCouple)(rt);
+    }
+  }
+  rt.extras = rt.extras.filter(e => e.update(dt));
+  updatePuffs(rt, dt);
+}
+const STAGE_TOAST = {
+  plaza: L => ['', '가로등이 하나 더 켜졌어요', '마주 보는 벤치가 놓였어요', '양쪽에 네모난 꽃밭이 생겼어요', '꽃밭과 네모 울타리가 뒤편을 감쌌어요', '시계탑이 세워졌어요'][L],
+  pond: L => ['', '물가에 풀이 돋고 돌이 놓였어요', '수련잎이 떠올랐어요', '바위에 분홍 들꽃이 피었어요', '물가가 한층 싱그러워졌어요', '연꽃이 피어나요'][L],
+};
+function buyItem(kind){
+  const it = ITEMS[kind], list = S.items[cur] ??= [];
+  if (list.includes(kind) || S.feathers < it.cost) return;
+  S.feathers -= it.cost; list.push(kind); save();
+  placeItem(cur, kind, true);
+  toast(`${it.name} 놓음`, `${PLACES[cur].name}에 ${it.name}이(가) 생겼어요`, true);
+  if (cur === 'yard') toast('베리 마당이 더 푸르러졌어요', S.items.yard.length >= 3 ? '풀이 자라고 꽃이 피고, 나비가 날아와요' : '풀이 자라고 꽃이 한 송이씩 피어나요');
+  if (STAGE_TOAST[cur]) toast(`${PLACES[cur].name}이(가) 꾸며졌어요`, STAGE_TOAST[cur](Math.min(5, S.items[cur].length)));
+  checkHiddenUnlock(cur);
+  if (kind === 'cleaner' && !S.seen.plover){
+    S.seen.plover = {visits:0, eaten:0}; save();
+    toast('새로운 새 · 이집트물떼새', '도감에 등록됐어요', true);
+  }
+  updateHUD(); renderShop();
+}
+const freeSpot = rt => { const f = rt.spots.filter(s => !s.occupant); return f.length ? f[Math.floor(Math.random()*f.length)] : null; };
+for (const a of ACH) if (a.element && done(a.id)) addYardElement(a.element, false);
+
+// ======================================================================
+//  Food on the ground
+// ======================================================================
+function dropFood(src){
+  const ripe = src.slots.filter(s => s.item && s.item.grow >= 1);
+  if (!ripe.length) return false;
+  const rt = src.rt, slot = ripe[Math.floor(Math.random()*ripe.length)];
+  const m = slot.item.mesh; rt.group.attach(m);
+  slot.item = null; slot.regrow = 4 + Math.random()*5;
+  const a = Math.random()*Math.PI*2, sp = src.throwH*(.4 + Math.random()*.6);
+  rt.food.push({mesh:m, state:'fall', r:FOOD[src.food].r*src.s, claimed:null,
+    v:new THREE.Vector3(Math.cos(a)*sp, src.throwUp*(.7 + Math.random()*.6), Math.sin(a)*sp)});
+  S.dropped++;
+  if (!S.tried[rt.id]){ S.tried[rt.id] = true; hideHint(); }
+  save(); checkAch(); updateHUD();
+  return true;
+}
+function updateFood(rt, dt){
+  for (const b of rt.food){
+    if (b.state !== 'fall') continue;
+    const p = b.mesh.position;
+    b.v.y -= 9.8*dt; p.addScaledVector(b.v, dt);
+    b.mesh.rotation.x += b.v.z*dt*8; b.mesh.rotation.z -= b.v.x*dt*8;
+    const d = Math.hypot(p.x, p.z); if (d > 3.4){ p.x *= 3.4/d; p.z *= 3.4/d; b.v.x *= -.4; b.v.z *= -.4; }
+    if (p.y <= b.r){
+      p.y = b.r;
+      if (b.v.y < -.7){ b.v.y *= -.35; b.v.x *= .6; b.v.z *= .6; }
+      else { b.state = 'ground'; b.v.set(0,0,0); pushOut(rt, p, b.r + .06); }
+    }
+  }
+}
+const freeFood = rt => rt.food.filter(b => b.state === 'ground' && !b.claimed);
+function removeFood(rt, b){ b.state = 'gone'; rt.group.remove(b.mesh); rt.food = rt.food.filter(x => x !== b); }
+
+// ======================================================================
+//  Poop: each drop leaves faint, soft grey ellipses. They overlap and build up
+//  like rain spots on pavement; enough of it and birds hesitate.
+// ======================================================================
+const stainTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+  const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.55, 'rgba(255,255,255,.75)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+})();
+const stainMats = [.13, .18, .24].map(o => new THREE.MeshBasicMaterial({map:stainTex, color:0x8e8a81, transparent:true, opacity:o, depthWrite:false}));
+const stainGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI/2);
+function addStain(rt, x, z, big){
+  const m = new THREE.Mesh(stainGeo, stainMats[Math.floor(Math.random()*3)]);
+  const w = big ? .28 + Math.random()*.22 : .12 + Math.random()*.1;
+  m.scale.set(w*(1.1 + Math.random()*.6), 1, w); m.rotation.y = Math.random()*Math.PI;
+  m.position.set(x, .006 + (rt.poops.length % 200)*.00003, z); m.renderOrder = 2;
+  m.userData.s = m.scale.clone();
+  rt.group.add(m); rt.poops.push(m);
+}
+function addSplat(rt, x, z){
+  // stains never land under a trunk, log or bench, where the cleaner couldn't reach them
+  const p = {x, z}; pushOut(rt, p, .08); x = p.x; z = p.z;
+  addStain(rt, x, z, true);
+  if (Math.random() < .6){ const q = {x:x + (Math.random()-.5)*.2, z:z + (Math.random()-.5)*.2}; pushOut(rt, q, .06); addStain(rt, q.x, q.z, false); }
+}
+const dirtOf = pid => S.dirt[pid] || 0;
+function poop(B){
+  const rt = B.rt, p = B.b.root.position, back = B.b.root.rotation.y + Math.PI;
+  addSplat(rt, p.x + Math.sin(back)*.1, p.z + Math.cos(back)*.1);
+  const before = dirtOf(rt.id);
+  S.dirt[rt.id] = Math.min(1, before + .05);
+  if (before < .7 && S.dirt[rt.id] >= .7) toast('바닥이 너무 더러워요', '새들이 내려앉기를 망설여요 · 똥을 치워 주세요');
+  save(); updateHUD();
+}
+function cleanUp(){
+  if (P.cleaning >= 0 || dirtOf(cur) <= 0) return;
+  P.cleaning = 0;
+}
+function updateDirt(rt, dt){
+  if (rt.cleaning < 0) return;
+  rt.cleaning = Math.min(1, rt.cleaning + dt*1.6);
+  const k = Math.max(.001, 1 - rt.cleaning);
+  for (const m of rt.poops) m.scale.copy(m.userData.s).multiplyScalar(k);
+  if (rt.cleaning >= 1){
+    for (const m of rt.poops) rt.group.remove(m);
+    rt.poops = []; S.dirt[rt.id] = 0; rt.cleaning = -1; save(); updateHUD();
+    toast('깨끗해졌어요', '새들이 다시 편하게 내려앉아요');
+  }
+}
+// restore the splats a saved dirt level implies
+for (const pid of PLACE_ORDER){
+  const n = Math.round(dirtOf(pid)/.05);
+  for (let i = 0; i < n; i++){ const a = Math.random()*6.28, r = .3 + Math.random()*2.2; addSplat(RT[pid], Math.cos(a)*r, Math.sin(a)*r); }
+}
+
+// ======================================================================
+//  Feathers: glowing yellow orbs, the currency. Drag across them to collect.
+// ======================================================================
+const glowTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+  const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,214,70,.85)'); gr.addColorStop(.35, 'rgba(255,200,40,.45)'); gr.addColorStop(1, 'rgba(255,200,40,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+})();
+const featherCore = new THREE.IcosahedronGeometry(.04, 0);
+const featherCoreMat = new THREE.MeshBasicMaterial({color:0xffcf33});
+function dropFeather(rt, pos){
+  const g = new THREE.Group(); g.position.set(pos.x, pos.y + .3, pos.z);
+  const core = new THREE.Mesh(featherCore, featherCoreMat); g.add(core);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex, transparent:true, depthWrite:false}));
+  halo.scale.setScalar(.32); g.add(halo);
+  rt.group.add(g);
+  rt.feathers.push({g, halo, state:'fall', t:Math.random()*6, sway:Math.random()*6});
+  if (!S.firstFeather){ S.firstFeather = true; save(); toast('깃털이 떨어졌어요', '빛나는 깃털을 문지르듯 드래그해서 모아요', true); }
+}
+function updateFeathers(rt, dt){
+  const coll = rt.items.collector;
+  if (coll){
+    coll.core.scale.setScalar(1 + Math.sin(T0*4)*.2);
+    coll.halo.material.opacity = .6 + Math.sin(T0*4)*.3;
+    if ((rt.collT -= dt) <= 0){
+      rt.collT = 1.1;
+      const f = rt.feathers.find(f => f.state === 'rest');
+      if (f){ f.state = 'suck'; f.from = f.g.position.clone(); f.p = 0; }
+    }
+  }
+  for (const f of rt.feathers){
+    f.t += dt;
+    if (f.state === 'suck'){
+      f.p = Math.min(1, f.p + dt*1.3);
+      f.g.position.lerpVectors(f.from, coll ? coll.jarPos : f.from, f.p);
+      f.g.position.y += Math.sin(f.p*Math.PI)*.6;
+      f.g.scale.setScalar(1 - f.p*.6);
+      if (f.p >= 1){ rt.group.remove(f.g); f.gone = true; gainFeather(); }
+      continue;
+    }
+    if (f.state === 'fall'){
+      f.g.position.y -= dt*.35;
+      f.g.position.x += Math.sin(f.t*3 + f.sway)*dt*.12;
+      if (f.g.position.y <= .1){ f.g.position.y = .1; f.state = 'rest'; }
+    } else f.g.position.y = .1 + Math.sin(f.t*2.4)*.025;
+    f.g.rotation.y += dt*1.5;
+    f.halo.material.opacity = .75 + Math.sin(f.t*4)*.25;
+  }
+  if (rt.feathers.some(f => f.gone)) rt.feathers = rt.feathers.filter(f => !f.gone);
+}
+function gainFeather(){
+  S.feathers++; save(); updateHUD();
+  featherPill.classList.remove('bump'); void featherPill.offsetWidth; featherPill.classList.add('bump');
+  if ($('placeSheet').classList.contains('open')) renderPlaces();
+  if ($('shopSheet').classList.contains('open')) renderShop();
+}
+const featherPill = document.getElementById('featherPill');
+function collectFeather(f, sx, sy){
+  P.group.remove(f.g); P.feathers = P.feathers.filter(x => x !== f);
+  const orb = document.createElement('div'); orb.className = 'flyorb';
+  orb.style.transform = `translate(${sx}px,${sy}px)`; layer.append(orb);
+  const r = featherPill.getBoundingClientRect();
+  requestAnimationFrame(() => requestAnimationFrame(() => { orb.style.transform = `translate(${r.left + 22}px,${r.top + r.height/2}px) scale(.7)`; }));
+  setTimeout(() => { orb.remove(); gainFeather(); }, 560);
+}
+function featherNear(x, y){
+  return P.feathers.some(f => {
+    if (f.state === 'suck') return false;
+    f.g.getWorldPosition(v3); v3.project(camera);
+    return Math.hypot((v3.x + 1)/2*innerWidth - x, (1 - v3.y)/2*innerHeight - y) < 48;
+  });
+}
+function sweep(x, y){
+  for (const f of [...P.feathers]){
+    if (f.state === 'suck') continue;
+    f.g.getWorldPosition(v3); v3.project(camera);
+    const sx = (v3.x + 1)/2*innerWidth, sy = (1 - v3.y)/2*innerHeight;
+    if (Math.hypot(sx - x, sy - y) < 38) collectFeather(f, sx, sy);
+  }
+}
+
+// ======================================================================
+//  Birds
+// ======================================================================
+let T0 = 0;
+const v3 = new THREE.Vector3();
+const bez = (B, u, out) => {
+  const a = (1-u)*(1-u), b = 2*(1-u)*u, c = u*u;
+  return out.set(a*B.p0.x + b*B.p1.x + c*B.p2.x, a*B.p0.y + b*B.p1.y + c*B.p2.y, a*B.p0.z + b*B.p1.z + c*B.p2.z);
+};
+const capFor = pid => pid === 'yard' ? 3 + (hasElement('bush') ? 1 : 0) + (hasElement('tree2') ? 2 : 0) : pid === 'pond' ? 4 : 5;
+const onGround = B => B.state === 'walk' || B.state === 'eat' || B.state === 'look' || B.state === 'rest';
+
+// spot given → the bird comes only to rest on a perch / birdhouse
+function spawnBird(rt, spot){
+  const fb = freeFood(rt); if (!spot && !fb.length) return;
+  const pool = poolFor(rt.id), unseen = pool.filter(k => !S.seen[k]);
+  const pickW = list => {
+    let t = list.reduce((s, k) => s + (SPECIES[k].rarity ?? 1), 0)*Math.random();
+    for (const k of list){ t -= SPECIES[k].rarity ?? 1; if (t <= 0) return k; }
+    return list[list.length - 1];
+  };
+  const id = pickW(unseen.length && Math.random() < .5 ? unseen : pool);
+  const target = spot ? null : fb[Math.floor(Math.random()*fb.length)];
+  const b = buildBird(id), large = b.large, sp0 = SPECIES[id];
+  // long beaks and necks reach food from further away
+  const a = Math.random()*Math.PI*2, reach = ((large ? .24 : .15) + Math.max(0, (sp0.beakLen || 0) - .3)*.4 + (sp0.neckLen ? .08 : 0))*BK*(SIZE[id] || 1);
+  const p0 = new THREE.Vector3(Math.cos(a)*9, 4 + Math.random()*1.5, Math.sin(a)*9);
+  let p2;
+  if (spot) p2 = spot.pos.clone();
+  else {
+    const tp = target.mesh.position, dir = new THREE.Vector3(p0.x - tp.x, 0, p0.z - tp.z).normalize();
+    p2 = new THREE.Vector3(tp.x + dir.x*(reach + .17*BK), 0, tp.z + dir.z*(reach + .17*BK));
+    pushOut(rt, p2, (large ? .16 : .1)*BK);
+  }
+  const p1 = p0.clone().lerp(p2, .65); p1.y = Math.max(1.6, p2.y + .6);
+  const B = {rt, b, id, state:'in', t:0, dur:p0.distanceTo(p2)/4.2, p0, p1, p2, target, fly:1, peck:0, headYaw:0, headGoal:0, lookT:1, full:0,
+             hop:null, rest:0, reach, poopT:3 + Math.random()*6, restSpot:spot || null,
+             step: large ? {len:.13*BK, time:.2, h:.012*BK} : {len:.11*BK, time:.17, h:.035*BK}};
+  if (spot) spot.occupant = B; else target.claimed = B;
+  b.root.position.copy(p0);
+  b.root.traverse(o => { o.userData.agent = B; });
+  rt.group.add(b.root); rt.birds.push(B);
+}
+function faceTo(B, yaw, dt){
+  const r = B.b.root; let d = yaw - r.rotation.y;
+  d = ((d + Math.PI) % (Math.PI*2) + Math.PI*2) % (Math.PI*2) - Math.PI;
+  r.rotation.y += d*Math.min(1, dt*10);
+}
+// one small step (or two-footed hop for small birds) toward (tx, tz)
+function stepToward(B, tx, tz, dt){
+  const p = B.b.root.position, st = B.step;
+  if (!B.hop){
+    if ((B.rest -= dt) > 0) return;
+    const dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz); if (d < .005) return;
+    const L = Math.min(st.len, d);
+    B.hop = {fx:p.x, fz:p.z, tx:p.x + dx/d*L, tz:p.z + dz/d*L, p:0};
+  }
+  const h = B.hop; h.p = Math.min(1, h.p + dt/st.time);
+  p.x = h.fx + (h.tx - h.fx)*h.p; p.z = h.fz + (h.tz - h.fz)*h.p; p.y = Math.sin(Math.PI*h.p)*st.h;
+  if (B.b.large){ B.b.legs[0].rotation.x = Math.sin(h.p*Math.PI)*.4; B.b.legs[1].rotation.x = -Math.sin(h.p*Math.PI)*.4; B.bob = Math.sin(h.p*Math.PI); }
+  if (h.p >= 1){ B.hop = null; B.rest = B.b.large ? .01 : .04 + Math.random()*.08; p.y = 0; }
+}
+function applyPose(B){
+  const b = B.b, f = B.fly, sp = b.sp;
+  // a tapped bird gives a quick flustered flap
+  const wf = Math.max(f, B.wiggle > 0 ? .4*Math.sin((1 - B.wiggle/.45)*Math.PI) : 0);
+  b.wings.forEach((w, i) => { const s = i ? 1 : -1; w.rotation.x = .34 + wf*1.15; w.rotation.z = s*(.03 + wf*(.6 + .55*Math.sin(T0*32))); });
+  if (f > 0 || !b.large) b.legs.forEach(l => { l.rotation.x = f*.9; });
+  b.torso.rotation.x = (b.torso.userData.loaf ? 0 : sp.lean) + f*.3 + B.peck*.35;
+  b.neck.rotation.x = -sp.lean*.8 + B.peck*1.05 - f*.2;
+  b.head.rotation.y = B.headYaw*(1 - f);
+  b.head.position.z = b.large && B.hop ? (B.hop.p < .5 ? .05 : -.03) : b.head.position.z*.8;  // pigeon-style head bob
+}
+function land(B){
+  const first = !S.seen[B.id];
+  S.seen[B.id] ??= {visits:0, eaten:0};
+  S.seen[B.id].visits++;
+  if (first) toast(`새로운 새 · ${SPECIES[B.id].name}`, '도감에 등록됐어요', true);
+  if (Math.random() < .3) dropFeather(B.rt, B.b.root.position);
+  save(); checkAch(); updateHUD();
+}
+function leave(B){
+  const p = B.b.root.position.clone(), a = Math.random()*Math.PI*2;
+  if (Math.random() < .4) dropFeather(B.rt, p);
+  B.p0 = p; B.p2 = new THREE.Vector3(p.x + Math.cos(a)*9, 5, p.z + Math.sin(a)*9);
+  B.p1 = new THREE.Vector3(p.x + Math.cos(a)*1.4, 1.1, p.z + Math.sin(a)*1.4);
+  B.dur = 2.4; B.t = 0; B.state = 'out'; B.peck = 0;
+  if (B.target){ B.target.claimed = null; B.target = null; }
+  if (B.restSpot){ B.restSpot.occupant = null; B.restSpot = null; }
+  setSit(B, null); B.b.root.rotation.z = 0;
+}
+// how each kind of resting spot behaves; sit = how the bird sits there (legs tucked away)
+const REST = {
+  perch: {stay:35, extra:25, feather:7},
+  house: {stay:60, extra:50, feather:5},
+  water: {stay:40, extra:30, feather:7, sit:'float'},
+  bowl:  {stay:30, extra:20, feather:7, sit:'float'},
+  loaf:  {stay:45, extra:35, feather:6, sit:'loaf'},
+};
+// chance that a fed bird picks one of the place's special resting spots instead of perches
+const SPECIAL_CHANCE = {pond:.10, plaza:.13, yard:.08, river:.10, forest:.12};
+function specialSpot(rt){
+  if (Math.random() >= SPECIAL_CHANCE[rt.id]) return null;
+  const f = rt.specials.filter(s => !s.occupant);
+  return f.length ? f[Math.floor(Math.random()*f.length)] : null;
+}
+function setSit(B, sit){
+  const b = B.b, sp = b.sp, H = TPL[sp.tpl].H;
+  b.legs.forEach(l => { l.visible = !sit; });
+  // "식빵 굽기": legs hidden, belly on the surface; floating sinks a little lower
+  b.hips.position.y = sit === 'loaf' ? H*.15 : sit === 'float' ? H*.07 : (sp.legLen || TPL[sp.tpl].legLen);
+  b.torso.userData.loaf = sit === 'loaf';
+}
+// short flight from the ground up to a free perch / birdhouse spot
+function goRest(B, spot){
+  spot.occupant = B; B.restSpot = spot;
+  B.p0 = B.b.root.position.clone(); B.p2 = spot.pos.clone();
+  B.p1 = B.p0.clone().lerp(B.p2, .5); B.p1.y = Math.max(B.p0.y, B.p2.y) + .7;
+  B.dur = .5 + B.p0.distanceTo(B.p2)/3; B.t = 0; B.state = 'in';
+}
+// big, heavy fliers take the hop over an obstacle lazily; everyone else flits across
+const SLOW_FLIERS = new Set(['heron','seagull','falcon','owl','uralowl','barnowl']);
+// a short flight from where the bird is stuck to a clear patch of ground
+function skipTo(B, dest){
+  const slow = SLOW_FLIERS.has(B.id), r = B.b.root;
+  pushOut(B.rt, dest, (B.b.large ? .16 : .1)*BK);
+  B.p0 = r.position.clone(); B.p2 = new THREE.Vector3(dest.x, 0, dest.z);
+  B.p1 = B.p0.clone().lerp(B.p2, .5); B.p1.y = slow ? .55 : .35;
+  B.dur = slow ? 1.1 : .45; B.t = 0; B.after = B.state; B.state = 'skip'; B.hop = null; B.stuck = 0;
+}
+// every 0.6 s: if a bird that's trying to move has barely moved twice running, it's wedged somewhere
+function checkStuck(B, dt, moving, dest){
+  B.chk = (B.chk || 0) + dt;
+  if (B.chk < .6) return;
+  B.chk = 0;
+  const p = B.b.root.position, moved = B.lastP ? Math.hypot(p.x - B.lastP.x, p.z - B.lastP.z) : 1;
+  B.lastP = {x:p.x, z:p.z};
+  B.stuck = moving && moved < .025 ? (B.stuck || 0) + 1 : 0;
+  if (B.stuck >= 2) skipTo(B, dest());
+}
+function updateBird(B, dt){
+  const r = B.b.root, rt = B.rt;
+  if (B.state === 'skip'){
+    B.t = Math.min(1, B.t + dt/B.dur);
+    const u = B.t*B.t*(3 - 2*B.t);
+    bez(B, u, r.position); bez(B, Math.min(1, u + .03), v3);
+    if (Math.hypot(v3.x - r.position.x, v3.z - r.position.z) > 1e-4) faceTo(B, Math.atan2(v3.x - r.position.x, v3.z - r.position.z), dt*2);
+    B.fly = Math.min(1, Math.sin(Math.PI*B.t)*2.2);
+    if (B.t >= 1){ r.position.y = 0; B.fly = 0; B.state = B.after; B.lastP = null; }
+  } else if (B.state === 'in' || B.state === 'out'){
+    B.t = Math.min(1, B.t + dt/B.dur);
+    const u = B.state === 'in' ? 1 - (1 - B.t)*(1 - B.t) : B.t*B.t;
+    bez(B, u, r.position);
+    bez(B, Math.min(1, u + .02), v3);
+    if (Math.hypot(v3.x - r.position.x, v3.z - r.position.z) > 1e-4) faceTo(B, Math.atan2(v3.x - r.position.x, v3.z - r.position.z), dt*3);
+    B.fly = B.state === 'in' ? (B.t < .85 ? 1 : 1 - (B.t - .85)/.15) : Math.min(1, B.t*6);
+    if (B.t >= 1){
+      if (B.state === 'in'){
+        B.fly = 0;
+        if (!B.landed){ B.landed = true; land(B); }
+        if (B.restSpot){
+          const R = REST[B.restSpot.kind];
+          r.position.copy(B.restSpot.pos); r.rotation.y = B.restSpot.yaw;
+          B.state = 'rest'; B.restT = R.stay + Math.random()*R.extra; B.featherT = R.feather*.6; B.restClock = Math.random()*6;
+          setSit(B, R.sit);
+        } else { r.position.y = 0; B.state = 'walk'; }
+      }
+      else { rt.group.remove(r); rt.birds = rt.birds.filter(x => x !== B); }
+    }
+  } else if (B.state === 'rest'){
+    // resting birds stay a long while and shed feathers now and then
+    const kind = B.restSpot.kind, R = REST[kind];
+    B.restClock += dt;
+    if (kind === 'water' || kind === 'bowl'){
+      // bob on the water; on the pond, also drift in a slow lazy loop
+      const sp = B.restSpot.pos, d = kind === 'water' ? .18 : 0;
+      r.position.set(sp.x + Math.sin(B.restClock*.25)*d, sp.y + Math.sin(B.restClock*2.2)*.008, sp.z + Math.cos(B.restClock*.25)*d - d);
+      if (d) r.rotation.y = B.restClock*.25 + Math.PI/2;
+      r.rotation.z = Math.sin(B.restClock*1.7)*.04;
+    } else if ((B.poopT -= dt) <= 0){ poop(B); B.poopT = 8 + Math.random()*10; }
+    if ((B.featherT -= dt) <= 0){ dropFeather(rt, r.position); B.featherT = R.feather + Math.random()*4; }
+    if (Math.random() < dt*.6) B.headGoal = (Math.random() - .5)*1.6;
+    if ((B.restT -= dt) <= 0) leave(B);
+  } else {
+    if (B.state !== 'eat' && (B.poopT -= dt) <= 0){ poop(B); B.poopT = 6 + Math.random()*9; }
+    if (B.state === 'walk'){
+      const t = B.target;
+      B.walkT = (B.walkT || 0) + dt;
+      // give up on food it can't get round to (e.g. on the far side of a trunk)
+      if (t && B.walkT > 7){ t.claimed = null; B.target = null; B.state = 'look'; B.lookT = 1; B.walkT = 0; }
+      else if (!t || t.state !== 'ground' || t.claimed !== B){ B.target = null; B.state = 'look'; B.lookT = .4; }
+      else {
+        const tp = t.mesh.position, dx = tp.x - r.position.x, dz = tp.z - r.position.z, d = Math.hypot(dx, dz);
+        faceTo(B, Math.atan2(dx, dz), dt);
+        if (d < B.reach + .02 && !B.hop){ B.state = 'eat'; B.eatT = 0; }
+        else {
+          stepToward(B, tp.x - dx/d*B.reach, tp.z - dz/d*B.reach, dt);
+          checkStuck(B, dt, true, () => ({x:tp.x - dx/d*B.reach, z:tp.z - dz/d*B.reach}));
+        }
+      }
+    } else if (B.state === 'eat'){
+      B.eatT += dt;
+      B.peck = Math.abs(Math.sin(B.eatT*Math.PI*2.4));
+      if (B.eatT > .5 && B.target) B.target.mesh.scale.setScalar(Math.max(.01, 1 - (B.eatT - .5)/.75));
+      if (B.eatT >= 1.25){
+        B.peck = 0; removeFood(rt, B.target); B.target = null; B.full++;
+        S.eaten++; S.seen[B.id].eaten++;
+        if (Math.random() < .15) dropFeather(rt, r.position);
+        save(); checkAch(); updateHUD();
+        B.state = 'look'; B.lookT = B.full >= 3 ? .8 : 2.5 + Math.random()*4;
+      }
+    } else if (B.state === 'look'){
+      const fb = B.full < 3 ? freeFood(rt) : [];
+      if (fb.length){
+        let best = fb[0], bd = 1e9;
+        for (const b of fb){ const d = b.mesh.position.distanceToSquared(r.position); if (d < bd){ bd = d; best = b; } }
+        best.claimed = B; B.target = best; B.state = 'walk'; B.walkT = 0;
+      } else {
+        if (!B.restChecked){
+          B.restChecked = true;
+          const sp = specialSpot(rt) || (Math.random() < .7 ? freeSpot(rt) : null);
+          if (sp && !B.hop){ r.position.y = 0; goRest(B, sp); applyPose(B); return; }
+        }
+        B.lookT -= dt;
+        if (Math.random() < dt*.8) B.headGoal = (Math.random() - .5)*1.6;
+        if (Math.random() < dt*.25 && !B.hop){
+          B.wander = {x:r.position.x + (Math.random()-.5)*.5, z:r.position.z + (Math.random()-.5)*.5};
+          pushOut(rt, B.wander, (B.b.large ? .16 : .1)*BK);  // never aim for a spot inside a trunk or sack
+        }
+        if (B.wander){
+          const dx = B.wander.x - r.position.x, dz = B.wander.z - r.position.z;
+          if (Math.hypot(dx, dz) < .03 && !B.hop) B.wander = null;
+          else {
+            faceTo(B, Math.atan2(dx, dz), dt); stepToward(B, B.wander.x, B.wander.z, dt);
+            // wedged on the way: hop over to a clear spot a little further out
+            checkStuck(B, dt, true, () => {
+              const a = Math.random()*Math.PI*2, w = {x:r.position.x + Math.cos(a)*.6, z:r.position.z + Math.sin(a)*.6};
+              B.wander = null; return w;
+            });
+          }
+        }
+        if (B.lookT <= 0) leave(B);
+      }
+    }
+  }
+  // birds on the ground never stand inside trunks, benches or sacks
+  if (B.state === 'walk' || B.state === 'eat' || B.state === 'look') pushOut(rt, r.position, (B.b.large ? .16 : .1)*BK);
+  B.wiggle = Math.max(0, (B.wiggle || 0) - dt);
+  B.headYaw += (B.headGoal - B.headYaw)*Math.min(1, dt*8);
+  if (B.state !== 'look' && B.state !== 'rest') B.headGoal = 0;
+  applyPose(B);
+}
+function clearBirds(rt){
+  for (const B of rt.birds) rt.group.remove(B.b.root);
+  rt.birds = [];
+  for (const f of rt.food) f.claimed = null;
+  for (const s of rt.spots) s.occupant = null;
+  for (const s of rt.specials) s.occupant = null;
+  // scripted moments end too; the longboard goes back to the bottom of the ramp
+  for (const e of rt.extras) e.actors.forEach(removeActor);
+  rt.extras = [];
+  for (const p of rt.puffs) rt.group.remove(p.m);
+  rt.puffs = [];
+  if (rt.hiddenObj){ rt.hiddenObj.rider.position.set(0, .02, 0); rt.hiddenObj.rider.rotation.set(0, 0, 0); }
+}
+
+// overlay for the feather orbs flying to the counter
+const layer = document.getElementById('layer');
+
+// ======================================================================
+//  Input: tap/shake a food source, tap a bird, drag across feathers to collect.
+//  Turn the view with the ◀ ▶ buttons, a right-drag, or the wheel to zoom.
+// ======================================================================
+let camA = .55, camD = 6.4, camGoal = .55;
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function pick(e){
+  ndc.set(e.clientX/innerWidth*2 - 1, -(e.clientY/innerHeight)*2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const birdHit = ray.intersectObjects(P.birds.map(B => B.b.root), true)[0];
+  if (birdHit) return {bird:birdHit.object.userData.agent};
+  const srcHit = ray.intersectObjects(P.sources.flatMap(t => t.hit), false)[0];
+  if (srcHit) return {src:srcHit.object.userData.src};
+  return null;
+}
+let drag = null;
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  if (e.button === 2){ drag = {orbit:true, lastX:e.clientX, lastY:e.clientY, moved:0}; return; }
+  // a drag that starts on a food source shakes it, one that starts on a feather sweeps feathers,
+  // and one that starts anywhere else turns the view
+  const h = pick(e), onFeather = !h && featherNear(e.clientX, e.clientY);
+  drag = {lastX:e.clientX, lastY:e.clientY, moved:0, src:h?.src, bird:h?.bird, sweep:onFeather, orbit:!h && !onFeather};
+  if (onFeather) sweep(e.clientX, e.clientY);
+});
+canvas.addEventListener('pointermove', e => {
+  if (!drag){ canvas.classList.toggle('over-tree', !!pick(e)); return; }
+  const dx = e.clientX - drag.lastX, dy = e.clientY - drag.lastY;
+  drag.lastX = e.clientX; drag.lastY = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
+  if (drag.orbit){ camGoal -= dx*.006; return; }
+  if (drag.src){
+    const t = drag.src;
+    t.shake = Math.min(1.6, t.shake + Math.abs(dx)*.012);
+    t.energy += Math.abs(dx)*.012;
+    while (t.energy >= 1){ t.energy -= 1; dropFood(t); }
+  } else if (drag.sweep){
+    // sample along the stroke so fast swipes still catch feathers
+    const n = Math.ceil(Math.hypot(dx, dy)/12);
+    for (let i = 1; i <= n; i++) sweep(e.clientX - dx*(1 - i/n), e.clientY - dy*(1 - i/n));
+  }
+});
+const endDrag = () => {
+  if (drag && !drag.orbit && drag.moved < 6){
+    if (drag.bird) drag.bird.wiggle = .45;
+    else if (drag.src){
+      const t = drag.src; t.shake = Math.min(1.6, t.shake + .7);
+      if (dropFood(t) && Math.random() < .35) dropFood(t);
+    }
+  }
+  drag = null;
+};
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', () => { drag = null; });
+canvas.addEventListener('wheel', e => { e.preventDefault(); camD = Math.min(11, Math.max(3.5, camD*(1 + e.deltaY*.001))); }, {passive:false});
+
+// ======================================================================
+//  HUD, toasts, sheets
+// ======================================================================
+const $ = id => document.getElementById(id);
+// ◀ ▶ step through the places that are already open
+function stepPlace(d){
+  const open = PLACE_ORDER.filter(p => S.places.includes(p));
+  if (open.length < 2){ toast('아직 다른 장소가 없어요', '깃털을 모아 장소 메뉴에서 새 장소를 열어 보세요'); return; }
+  goPlace(open[(open.indexOf(cur) + d + open.length) % open.length]);
+}
+$('prevPlace').onclick = () => stepPlace(-1);
+$('nextPlace').onclick = () => stepPlace(1);
+$('cleanBtn').onclick = cleanUp;
+function updateHUD(){
+  $('placeName').textContent = PLACES[cur].name;
+  $('stats').textContent = `떨어뜨린 먹이 ${S.dropped} · 먹은 먹이 ${S.eaten}`;
+  $('featherCount').textContent = S.feathers;
+  $('dexCount').textContent = `${ALL_SPECIES.filter(k => S.seen[k]).length}/${ALL_SPECIES.length}`;
+  $('achCount').textContent = `${S.ach.length}/${ACH.length}`;
+  const d = dirtOf(cur);
+  $('cleanBtn').hidden = d < .1;
+  $('cleanBtn').textContent = d >= .7 ? '똥 치우기 !' : '똥 치우기';
+  if ($('achSheet').classList.contains('open')) renderAch();
+  if ($('dexSheet').classList.contains('open')) renderDex();
+}
+function showHint(){ $('hint').textContent = PLACES[cur].hint; $('hint').classList.toggle('gone', !!S.tried[cur]); }
+function hideHint(){ $('hint').classList.add('gone'); }
+function toast(title, sub, isNew){
+  const el = document.createElement('div'); el.className = 'toast' + (isNew ? ' new' : '');
+  const s = document.createElement('strong'); s.textContent = title; const p = document.createElement('span'); p.textContent = sub;
+  el.append(s, p); $('toasts').append(el);
+  setTimeout(() => el.remove(), 3400);
+}
+function checkAch(){
+  for (const a of ACH){
+    if (done(a.id) || a.cur() < a.goal) continue;
+    S.ach.push(a.id); toast(`업적 달성 · ${a.name}`, a.reward);
+    if (a.element) addYardElement(a.element, true);
+    save();
+  }
+}
+
+let portraits = {};
+function makePortraits(){
+  const pr = new THREE.WebGLRenderer({antialias:true, alpha:true, preserveDrawingBuffer:true});
+  pr.setPixelRatio(1); pr.setSize(192, 192);
+  const ps = new THREE.Scene();
+  ps.add(new THREE.HemisphereLight(0xffffff, 0xd0ccc4, 1));
+  const dl = new THREE.DirectionalLight(0xffffff, .6); dl.position.set(2, 3, 3); ps.add(dl);
+  const pc = new THREE.PerspectiveCamera(30, 1, .05, 10);
+  const box = new THREE.Box3(), size = new THREE.Vector3(), ctr = new THREE.Vector3(), dir = new THREE.Vector3(.55, .38, 1).normalize();
+  for (const id of ALL_SPECIES){
+    const b = buildBird(id);
+    b.root.rotation.y = .35; ps.add(b.root); b.root.updateMatrixWorld(true);
+    // frame each bird by its own bounds, so herons and wrens both fill the card
+    box.setFromObject(b.root); box.getSize(size); box.getCenter(ctr);
+    pc.position.copy(ctr).addScaledVector(dir, Math.max(size.x, size.y, size.z)*2.1); pc.lookAt(ctr);
+    pr.render(ps, pc); portraits[id] = pr.domElement.toDataURL('image/png'); ps.remove(b.root);
+  }
+  pr.dispose(); pr.forceContextLoss?.();
+}
+function renderDex(){
+  const box = $('dex'); box.replaceChildren();
+  let n = 0;
+  for (const pid of PLACE_ORDER){
+    const h = document.createElement('div'); h.className = 'dexsec'; h.textContent = PLACES[pid].name; box.append(h);
+    const grid = document.createElement('div'); grid.className = 'dex'; box.append(grid);
+    for (const id of PLACES[pid].species){
+      n++;
+      const sp = SPECIES[id], s = S.seen[id], c = document.createElement('div');
+      c.className = 'card' + (s ? '' : ' locked');
+      const img = document.createElement('img'); img.src = portraits[id] || ''; img.alt = s ? sp.name : '아직 만나지 못한 새';
+      const no = document.createElement('div'); no.className = 'no'; no.textContent = `No.${String(n).padStart(3, '0')}`;
+      const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = s ? sp.name : '???';
+      const meta = document.createElement('div'); meta.className = 'meta';
+      meta.textContent = s ? `찾아온 횟수 ${s.visits} · 먹은 먹이 ${s.eaten}`
+        : S.places.includes(pid) ? sp.hint : `${PLACES[pid].name}을(를) 열면 만날 수 있어요.`;
+      c.append(img, no, nm, meta); grid.append(c);
+    }
+  }
+}
+function renderAch(){
+  const box = $('ach'); box.replaceChildren();
+  for (const a of ACH){
+    const v = Math.min(a.cur(), a.goal), ok = done(a.id), r = document.createElement('div');
+    r.className = 'row' + (ok ? ' done' : '');
+    r.innerHTML = `<div class="top"><span class="nm"></span><span class="ct"></span></div><div class="ds"></div><div class="bar"><i></i></div><div class="rw"></div>`;
+    r.querySelector('.nm').textContent = (ok ? '✓ ' : '') + a.name;
+    r.querySelector('.ct').textContent = `${v} / ${a.goal}`;
+    r.querySelector('.ds').textContent = a.desc;
+    r.querySelector('.bar i').style.width = (v/a.goal*100) + '%';
+    r.querySelector('.rw').textContent = '보상 · ' + a.reward;
+    box.append(r);
+  }
+}
+function renderPlaces(){
+  const box = $('places'); box.replaceChildren();
+  for (const pid of PLACE_ORDER){
+    const pl = PLACES[pid], open = S.places.includes(pid), r = document.createElement('div');
+    r.className = 'row' + (pid === cur ? ' here' : '');
+    r.innerHTML = `<div class="top"><span class="nm"></span><span class="ct"></span></div><div class="ds"></div><div class="rw"></div>`;
+    r.querySelector('.nm').textContent = pl.name;
+    r.querySelector('.ct').textContent = pid === cur ? '지금 여기' : open ? '열림' : `깃털 ${pl.cost}개`;
+    r.querySelector('.ds').textContent = pl.desc;
+    r.querySelector('.rw').textContent = '찾아오는 새 · ' + pl.species.map(k => S.seen[k] ? SPECIES[k].name : '???').join(', ');
+    const btn = document.createElement('button'); btn.className = 'go';
+    if (pid === cur){ btn.textContent = '여기 있어요'; btn.disabled = true; btn.classList.add('light'); }
+    else if (open){ btn.textContent = '이동하기'; btn.onclick = () => goPlace(pid); }
+    else if (S.feathers >= pl.cost){ btn.innerHTML = '<span class="orb"></span>'; btn.append(` ${pl.cost}개로 열기`); btn.onclick = () => unlockPlace(pid); }
+    else { btn.innerHTML = '<span class="orb"></span>'; btn.append(` ${pl.cost - S.feathers}개 더 필요해요`); btn.disabled = true; btn.classList.add('light'); }
+    r.append(btn); box.append(r);
+  }
+}
+function renderShop(){
+  const box = $('shop'); box.replaceChildren();
+  for (const [label, keys] of SHOP_CATS){
+  const h = document.createElement('div'); h.className = 'dexsec'; h.textContent = label; box.append(h);
+  for (const k of keys){
+    const it = ITEMS[k], here = (S.items[cur] || []).includes(k), r = document.createElement('div');
+    const where = PLACE_ORDER.filter(p => (S.items[p] || []).includes(k)).map(p => PLACES[p].name);
+    r.className = 'row' + (here ? ' done' : '');
+    r.innerHTML = `<div class="top"><span class="nm"></span><span class="ct"></span></div><div class="ds"></div><div class="rw"></div>`;
+    r.querySelector('.nm').textContent = it.name;
+    r.querySelector('.ct').textContent = here ? '여기 놓여 있어요' : `깃털 ${it.cost}개`;
+    r.querySelector('.ds').textContent = it.desc;
+    r.querySelector('.rw').textContent = '놓인 장소 · ' + (where.length ? where.join(', ') : '아직 없어요');
+    const btn = document.createElement('button'); btn.className = 'go';
+    if (here){ btn.textContent = `${PLACES[cur].name}에 있어요`; btn.disabled = true; btn.classList.add('light'); }
+    else if (S.feathers >= it.cost){ btn.innerHTML = '<span class="orb"></span>'; btn.append(` ${it.cost}개로 ${PLACES[cur].name}에 놓기`); btn.onclick = () => buyItem(k); }
+    else { btn.innerHTML = '<span class="orb"></span>'; btn.append(` ${it.cost - S.feathers}개 더 필요해요`); btn.disabled = true; btn.classList.add('light'); }
+    r.append(btn); box.append(r);
+  }
+  }
+  // hidden object: shown as ??? until bought
+  const H = HIDDEN[cur]; if (!H) return;
+  const h = document.createElement('div'); h.className = 'dexsec'; h.textContent = '히든'; box.append(h);
+  const owned = !!S.hidden[cur], ready = hiddenReady(cur), placed = ITEM_ORDER.filter(k => (S.items[cur] || []).includes(k)).length;
+  const r = document.createElement('div'); r.className = 'row' + (owned ? ' done' : '');
+  r.innerHTML = `<div class="top"><span class="nm"></span><span class="ct"></span></div><div class="ds"></div>`;
+  r.querySelector('.nm').textContent = owned ? H.name : '???';
+  r.querySelector('.ct').textContent = owned ? '여기 놓여 있어요' : ready ? `깃털 ${H.cost}개` : '잠김';
+  r.querySelector('.ds').textContent = owned ? H.desc
+    : ready ? '무엇이 나올지는 놓아 봐야 알아요.'
+    : `이 장소에 상점 오브젝트를 모두 놓으면 열려요 (${placed}/${ITEM_ORDER.length})`;
+  const btn = document.createElement('button'); btn.className = 'go';
+  if (owned){ btn.textContent = `${PLACES[cur].name}에 있어요`; btn.disabled = true; btn.classList.add('light'); }
+  else if (ready && S.feathers >= H.cost){ btn.innerHTML = '<span class="orb"></span>'; btn.append(` ${H.cost}개로 놓기`); btn.onclick = () => buyHidden(cur); }
+  else if (ready){ btn.innerHTML = '<span class="orb"></span>'; btn.append(` ${H.cost - S.feathers}개 더 필요해요`); btn.disabled = true; btn.classList.add('light'); }
+  else { btn.textContent = '잠겨 있어요'; btn.disabled = true; btn.classList.add('light'); }
+  r.append(btn); box.append(r);
+}
+function unlockPlace(pid){
+  const pl = PLACES[pid];
+  if (S.places.includes(pid) || S.feathers < pl.cost) return;
+  S.feathers -= pl.cost; S.places.push(pid); save();
+  toast(`새 장소 · ${pl.name}`, `${pl.species.map(k => SPECIES[k].name).join(', ')}이(가) 찾아올지도 몰라요`, true);
+  goPlace(pid);
+}
+function goPlace(pid){
+  clearBirds(P); P.group.visible = false;
+  cur = pid; P = RT[pid]; P.group.visible = true; P.spawnT = 1.2; applyEnv(pid);
+  S.cur = pid; save();
+  for (const s of document.querySelectorAll('.sheet')) s.classList.remove('open');
+  showHint(); updateHUD();
+}
+function openSheet(id){
+  for (const s of document.querySelectorAll('.sheet')) s.classList.toggle('open', s.id === id);
+  if (id === 'achSheet') renderAch(); else if (id === 'dexSheet') renderDex(); else if (id === 'shopSheet') renderShop(); else renderPlaces();
+}
+$('openPlace').onclick = () => openSheet('placeSheet');
+$('openShop').onclick = () => { $('openShop').classList.remove('ping'); openSheet('shopSheet'); };
+$('openDex').onclick = () => openSheet('dexSheet');
+$('openAch').onclick = () => openSheet('achSheet');
+for (const b of document.querySelectorAll('[data-close]')) b.onclick = () => b.closest('.sheet').classList.remove('open');
+addEventListener('keydown', e => { if (e.key === 'Escape') for (const s of document.querySelectorAll('.sheet')) s.classList.remove('open'); });
+
+function resetButton(){
+  const box = $('reset'); box.replaceChildren();
+  const b = document.createElement('button'); b.className = 'ghost'; b.textContent = '처음부터 다시'; b.onclick = resetPrompt;
+  const q = document.createElement('button'); q.className = 'ghost';
+  q.textContent = S.admin ? '관리자 모드 켜짐' : '관리자 모드'; q.disabled = !!S.admin; q.onclick = adminPrompt;
+  box.append(b, q);
+}
+// admin mode: a 4-digit code unlocks everything for testing
+const ADMIN_CODE = '4575';
+function adminPrompt(){
+  const box = $('reset'); box.replaceChildren();
+  const inp = document.createElement('input');
+  Object.assign(inp, {type:'password', inputMode:'numeric', maxLength:4, id:'adminCode', placeholder:'비밀번호 4자리', autocomplete:'off'});
+  inp.className = 'code';
+  const ok = document.createElement('button'); ok.className = 'ghost'; ok.textContent = '확인';
+  const no = document.createElement('button'); no.className = 'ghost'; no.textContent = '취소';
+  const msg = document.createElement('span');
+  const tryCode = () => {
+    if (inp.value === ADMIN_CODE){ enableAdmin(); resetButton(); }
+    else { msg.textContent = '비밀번호가 틀렸어요'; inp.value = ''; inp.focus(); }
+  };
+  ok.onclick = tryCode; no.onclick = resetButton;
+  inp.addEventListener('input', () => { inp.value = inp.value.replace(/\D/g, ''); if (inp.value.length === 4) tryCode(); });
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') tryCode(); });
+  box.append(inp, ok, no, msg); inp.focus();
+}
+function enableAdmin(){
+  S.admin = true; S.feathers = 99999;
+  for (const p of PLACE_ORDER) if (!S.places.includes(p)) S.places.push(p);
+  for (const a of ACH) if (!done(a.id)){ S.ach.push(a.id); if (a.element) addYardElement(a.element, true); }
+  save(); updateHUD(); renderAch();
+  toast('관리자 모드', '깃털 99999개 · 모든 장소와 업적이 열렸어요', true);
+}
+function resetPrompt(){
+  const box = $('reset'); box.replaceChildren();
+  const q = document.createElement('span'); q.textContent = '도감, 업적, 깃털, 장소, 아이템이 모두 지워져요.';
+  const yes = document.createElement('button'); yes.className = 'ghost danger'; yes.textContent = '지우기';
+  const no = document.createElement('button'); no.className = 'ghost'; no.textContent = '취소';
+  yes.onclick = resetAll; no.onclick = resetButton;
+  box.append(q, yes, no);
+}
+function resetAll(){
+  S = fresh(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {}
+  for (const pid of PLACE_ORDER){
+    const rt = RT[pid];
+    clearBirds(rt);
+    for (const b of [...rt.food]) removeFood(rt, b);
+    for (const m of rt.poops) rt.group.remove(m); rt.poops = [];
+    for (const f of rt.feathers) rt.group.remove(f.g); rt.feathers = [];
+    rt.cleaning = -1;
+    for (const k in rt.elements) rt.group.remove(rt.elements[k]);
+    for (const k in rt.items) rt.group.remove(rt.items[k].group);
+    rt.elements = {}; rt.items = {}; rt.spots = []; rt.cleaner = null; rt.hiddenObj = null;
+    rt.specials = rt.specials.filter(s => s.kind !== 'bowl');
+    rt.obstacles = rt.obstacles.filter(o => !o.extra);
+    rt.sources = rt.sources.filter(s => !s.extra);
+  }
+  for (const sl of RT.yard.sources[0].slots) if (!sl.item) growFood(RT.yard.sources[0], sl, 1);
+  resetButton(); goPlace('yard'); renderAch(); renderDex();
+}
+
+// ======================================================================
+//  Loop
+// ======================================================================
+function resize(){
+  renderer.setSize(innerWidth, innerHeight, false);
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+const clock = new THREE.Clock();
+function frame(){
+  requestAnimationFrame(frame);
+  const dt = Math.min(clock.getDelta(), .05); T0 += dt;
+  const rt = P;
+
+  for (const t of rt.sources){
+    if (t.auto !== undefined && (t.auto -= dt) <= 0){  // automatic feeder
+      t.auto = 5 + Math.random()*3;
+      if (freeFood(rt).length < 4 && dropFood(t)) t.shake = .5;
+    }
+    t.shake *= Math.exp(-dt*3);
+    t.group.rotation.z = t.shake*.06*Math.sin(T0*26);
+    t.group.rotation.x = t.shake*.04*Math.cos(T0*21);
+    for (const sl of t.slots){
+      if (!sl.item){ if ((sl.regrow -= dt) <= 0) growFood(t, sl, 0); }
+      else if (sl.item.grow < 1){ sl.item.grow = Math.min(1, sl.item.grow + dt*.8); sl.item.mesh.scale.setScalar(Math.max(.001, sl.item.grow)); }
+    }
+  }
+  for (const k in rt.elements){
+    const g = rt.elements[k];
+    if (g.userData.pop !== undefined && g.userData.pop < 1){
+      g.userData.pop = Math.min(1, g.userData.pop + dt*1.6);
+      const p = g.userData.pop, s = p < 1 ? 1 + Math.sin(p*Math.PI)*.15 : 1;
+      g.scale.setScalar(Math.max(.001, p*s*g.userData.target));
+    }
+  }
+  if (rt.ripples) for (const m of rt.ripples){ m.position.x += m.userData.v*dt; if (m.position.x > 5.5) m.position.x = -5.5; }
+  updateFood(rt, dt);
+  updateDirt(rt, dt);
+  updateCleaner(rt, dt);
+  if (cur === 'yard') yardDecor.update(dt);
+  if (cur === 'pond') pondDecor.update(dt);
+  if (cur === 'plaza') plazaDecor.update(dt);
+  updateHidden(rt, dt);
+  updateFeathers(rt, dt);
+
+  rt.spawnT -= dt;
+  if (rt.spawnT <= 0){
+    // resting birds don't count toward the cap, and free perch spots attract birds on their own
+    const active = rt.birds.filter(b => !b.restSpot).length, spot = freeSpot(rt);
+    if (freeFood(rt).length && active < capFor(rt.id)) spawnBird(rt);
+    else if (spot && Math.random() < .45) spawnBird(rt, spot);
+    rt.spawnT = (1 + Math.random()*2) * (1 + dirtOf(rt.id)*2);  // a dirty floor scares birds off
+  }
+  for (const B of [...rt.birds]) updateBird(B, dt);
+  const crowd = rt.birds.filter(onGround).length;
+  if (crowd > S.maxCrowd){ S.maxCrowd = crowd; save(); checkAch(); updateHUD(); }
+
+  camA += (camGoal - camA)*Math.min(1, dt*6);
+  const portrait = innerWidth/innerHeight < 1 ? Math.pow(innerHeight/innerWidth, .55) : 1;
+  const D = camD*portrait;
+  camera.position.set(Math.sin(camA)*D, D*.5, Math.cos(camA)*D);
+  camera.lookAt(0, .55, 0);
+  renderer.render(scene, camera);
+}
+
+// ---------- boot ----------
+for (const pid of PLACE_ORDER) for (const k of S.items[pid] || []) placeItem(pid, k, false);
+rippleMat.map = stainTex; rippleMat.needsUpdate = true;
+yardDecor.update(0, true); pondDecor.update(0, true); plazaDecor.update(0, true);
+for (const pid in HIDDEN) if (S.hidden[pid]) placeHidden(pid, false);
+P.group.visible = true; applyEnv(cur);
+resetButton(); makePortraits(); showHint(); updateHUD(); resize(); frame();
+for (const pid in HIDDEN) checkHiddenUnlock(pid);  // saves that already qualify get the announcement once
+</script>
+</body>
+</html>
