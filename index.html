@@ -950,6 +950,7 @@ function makeCleaner(rt, x, z){
 const SCRUB_R = .55;  // radius one scrub clears around its target stain
 function updateCleaner(rt, dt){
   const C = rt.cleaner; if (!C) return;
+  if (C.dance > 0){ C.dance -= dt; applyPose(C); return; }
   const r = C.b.root, reach = .3*BK;
   if (C.state === 'idle'){
     // starts a round once six or more stains have piled up
@@ -2183,6 +2184,47 @@ function applyPose(B){
   b.neck.rotation.x = -sp.lean*.8 + B.peck*1.05 - f*.2;
   b.head.rotation.y = B.headYaw*(1 - f);
   b.head.position.z = b.large && B.hop ? (B.hop.p < .5 ? .05 : -.03) : b.head.position.z*.8;  // pigeon-style head bob
+  if (B.dance > 0) dancePose(B);
+  else if (b.torso.userData.danced){ b.torso.userData.danced = false; b.torso.position.set(0, 0, 0); b.torso.rotation.y = 0; b.neck.rotation.set(b.neck.rotation.x, 0, 0); b.head.rotation.set(0, b.head.rotation.y, 0); }
+}
+// ---------- hidden motion: the dance. The head bows a little and stays put while the rump goes round and round,
+// in time with every other dancing bird. The torso pivots about the base of the neck, so only the back end moves ----------
+const DANCE_BEAT = 1.7;  // rump circles per second
+const danceV = new THREE.Vector3(), danceRest = new THREE.Vector3();
+const danceQ = new THREE.Quaternion(), danceQ2 = new THREE.Quaternion(), danceHold = new THREE.Quaternion(), danceE = new THREE.Euler();
+function neckBase(b, rx, ry){
+  b.torso.position.set(0, 0, 0); b.torso.rotation.set(rx, ry, 0); b.torso.updateMatrix();
+  return danceV.copy(b.neck.position).applyMatrix4(b.torso.matrix);
+}
+function dancePose(B){
+  const b = B.b, sp = b.sp, loaf = b.torso.userData.loaf;
+  // ease in and out over the first and last 0.4 s
+  const e = Math.min(1, B.dance/.4, (B.danceLen - B.dance)/.4), ph = T0*DANCE_BEAT*Math.PI*2;
+  const base = (loaf ? 0 : sp.lean) + .12*e, pitch = .2*e*Math.sin(ph), yaw = .26*e*Math.cos(ph), bow = -sp.lean*.8 + .35*e;
+  // where the head points with the body still (the pose to hold)
+  b.head.rotation.set(0, 0, 0); b.neck.rotation.set(bow, 0, 0);
+  danceRest.copy(neckBase(b, base, 0));
+  b.root.updateMatrixWorld(true); b.head.getWorldQuaternion(danceHold);
+  b.torso.position.copy(danceRest).sub(neckBase(b, base + pitch, yaw));
+  // the neck takes the inverse of the torso's swing...
+  danceQ.setFromEuler(danceE.set(base, 0, 0)).multiply(danceQ2.setFromEuler(danceE.set(bow, 0, 0)));
+  b.neck.quaternion.copy(danceQ2.setFromEuler(b.torso.rotation).invert().multiply(danceQ));
+  // ...and the head mops up what the body's uneven stretch skews, so it holds its angle exactly
+  b.root.updateMatrixWorld(true); b.neck.getWorldQuaternion(danceQ2);
+  b.head.quaternion.copy(danceQ2.invert().multiply(danceHold));
+  b.legs.forEach(l => { l.rotation.x = 0; });
+  b.torso.userData.danced = true;
+}
+// every bird in the place that is standing, walking, eating or perched joins in; flying and floating birds don't
+function startDance(rt, len = 5){
+  const join = B => B.dance = B.danceLen = len;
+  for (const B of rt.birds){
+    if (B.state === 'in' || B.state === 'out' || B.state === 'skip') continue;
+    if (B.state === 'rest' && REST[B.restSpot.kind].sit === 'float') continue;
+    join(B); B.hop = null; B.peck = 0;
+    if (B.state !== 'rest') B.b.root.position.y = 0;
+  }
+  if (rt.cleaner && rt.cleaner.state === 'idle'){ join(rt.cleaner); rt.cleaner.hop = null; rt.cleaner.b.root.position.y = 0; }
 }
 function land(B){
   const first = !S.seen[B.id];
@@ -2253,6 +2295,8 @@ function checkStuck(B, dt, moving, dest){
 }
 function updateBird(B, dt){
   const r = B.b.root, rt = B.rt;
+  // dancing birds stand still and do nothing else until the dance ends
+  if (B.dance > 0){ B.dance -= dt; applyPose(B); return; }
   if (B.state === 'skip'){
     B.t = Math.min(1, B.t + dt/B.dur);
     const u = B.t*B.t*(3 - 2*B.t);
@@ -2735,6 +2779,8 @@ function frame(){
   updateHidden(rt, dt);
   updateFeathers(rt, dt);
 
+  // hidden motion: now and then (about once every three minutes with a crowd) everyone breaks into the dance
+  if (rt.birds.filter(onGround).length >= 3 && !rt.birds.some(B => B.dance > 0) && Math.random() < dt/180) startDance(rt, 4 + Math.random()*3);
   rt.spawnT -= dt;
   if (rt.spawnT <= 0){
     // resting birds don't count toward the cap, and free perch spots attract birds on their own

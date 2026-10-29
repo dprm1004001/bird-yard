@@ -88,6 +88,15 @@ Hidden objects (`HIDDEN`):
 - After it is bought, rare odd moments happen in the plaza: a pigeon smoking at the foot of a lamp with the cigarette held in its wing, and a bird couple kissing on the facing bench.
 - The other places' hidden objects are still to be directed by the user.
 
+## Hidden motion: the dance
+
+- `startDance(rt, len)` makes every bird in the place dance in sync. That includes birds standing, walking, eating or perched, and an idle cleaner. Flying and floating birds don't join.
+- In the dance, the head bows a little and holds still. Only the rump goes round in circles (`DANCE_BEAT` circles a second).
+- The torso pivots about the base of the neck. The neck takes the inverse of the swing, and the head corrects what the body's uneven `scale` skews.
+- It was checked on every species: the beak direction varies by no more than about 3°.
+- While `B.dance > 0`, a bird does nothing else. The pose resets cleanly afterwards.
+- For now it happens on its own, rarely: about once every three minutes when three or more birds are on the ground. It is meant to be tied to a hidden object later.
+
 ## Behaviour notes
 
 - Birds rest on perches and birdhouses. They also take special rests: floating on water (pond and river), loafing (식빵 굽기) on benches or logs, and in the yard's bowl.
