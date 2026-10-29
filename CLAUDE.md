@@ -56,7 +56,7 @@ The island (`buildIsland`):
   - 1+: a lime-green wash in the middle of the sand. The island's light bleaches pale colours, so mix colours deep there.
   - 2+: rocks bobbing in the sea.
   - 3+: scallop and cone shells.
-  - 4+: plumeria flowers.
+  - 4+: plumeria thickets: tiny bush blobs, smaller than the yard's bush, with plumeria peeking out between them. Birds walk round a thicket once it shows.
 - `HIDDEN_ZONE.island` is the front of the island, facing the starting view. It is kept empty of decor and items for the island's future hidden object. The feeder and cleaner spots were moved out of it.
 - There is no hidden object yet.
 

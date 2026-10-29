@@ -1459,12 +1459,13 @@ const forestDecor = (() => {
 const islandDecor = (() => {
   const g = new THREE.Group(); RT.island.group.add(g);
   const avoid = {obstacles:[{x:-.35, z:-.3, r:.3}, HIDDEN_ZONE.island, ...Object.values(ITEM_SPOTS.island).map(([x, z]) => ({x, z, r:.38}))]};
-  const sandSpot = (i, salt, rMin, rMax) => {
+  // pad: extra clearance from the hidden-object zone and other obstacles, for things wider than a point
+  const sandSpot = (i, salt, rMin, rMax, pad = 0) => {
     for (let k = 0; k < 12; k++){
       const a = rnd(i*12.9 + salt + k*3.3)*Math.PI*2, d = rMin + Math.sqrt(rnd(i*7.3 + salt*3 + k))*(rMax - rMin);
-      const p = {x:Math.cos(a)*d, z:Math.sin(a)*d}; pushOut(avoid, p, .05);
+      const p = {x:Math.cos(a)*d, z:Math.sin(a)*d}; pushOut(avoid, p, .05 + pad);
       const z = HIDDEN_ZONE.island;
-      if (Math.hypot(p.x, p.z) < ISLAND_R - .3 && Math.hypot(p.x - z.x, p.z - z.z) > z.r) return p;
+      if (Math.hypot(p.x, p.z) < ISLAND_R - .3 - pad && Math.hypot(p.x - z.x, p.z - z.z) > z.r + pad) return p;
     }
     return {x:-1.0, z:-1.5};
   };
@@ -1496,18 +1497,38 @@ const islandDecor = (() => {
     const p = sandSpot(i, 3, 1.2, 2.2), m = mesh(i % 4 === 3 ? conch : scallops[i % 3]); m.castShadow = false;
     m.position.set(p.x, .006, p.z); m.rotation.y = rnd(i*5)*6; add(shells, m, .9 + rnd(i*7)*.5, i + 30);
   }
-  // plumeria: five rounded petals (white with a yellow heart, or pink) lying open on the ground
+  // plumeria thickets: a few little faceted bush blobs (smaller than the yard's bush) with plumeria
+  // tucked in between them, facing outward from the leaves. Five rounded petals: white with a yellow heart, or pink
   const petal = (h, salt) => solid(new THREE.SphereGeometry(.055, 5, 2).scale(1, .3, .55).translate(.055, .03, 0), h, salt);
   const PLUMERIA = [['#fbf8f0','#f2b632'], ['#f29ab4','#f2c23a'], ['#fbf8f0','#f2b632']].map(([p, h], i) => ({
     petal:petal(p, 970 + i), heart:solid(new THREE.OctahedronGeometry(.026, 0).scale(1, .6, 1).translate(0, .04, 0), h, 975 + i)}));
-  const flowers = [];
-  for (let i = 0; i < 14; i++){
-    const kind = PLUMERIA[i % 3], f = new THREE.Group();
+  const plumeria = kind => {
+    const f = new THREE.Group();
     for (let k = 0; k < 5; k++){ const m = mesh(kind.petal); m.rotation.y = k*Math.PI*2/5 + .25; m.rotation.z = .18; f.add(m); }
-    f.add(mesh(kind.heart));
+    f.add(mesh(kind.heart)); return f;
+  };
+  const bushDark = col('#2f6b3a'), bushLight = col('#5f9e48');
+  const bushGeos = [.16, .12, .11].map((r, i) => skin(shape(new THREE.IcosahedronGeometry(r, 0), r*.16, 980 + i),
+    (c,x,y) => c.copy(bushDark).lerp(bushLight, ss(-r*.8, r*.6, y)), 980 + i));
+  const BLOBS = [[0,.12,0,0],[.15,.09,.06,1],[-.13,.08,.07,2]];  // x, y, z, which blob geometry
+  const up = new THREE.Vector3(0, 1, 0), dir = new THREE.Vector3();
+  const groves = [];
+  for (let i = 0; i < 8; i++){
+    const grove = new THREE.Group();
     // the first few gather round the palm's foot, the rest spread over the green
-    const p = i < 5 ? sandSpot(i, 5, .45, .9) : sandSpot(i, 6, .5, 1.7);
-    f.position.set(p.x, .006, p.z); f.rotation.y = rnd(i*9)*6; add(flowers, f, .9 + rnd(i*4)*.5, i + 50);
+    const p = i < 3 ? sandSpot(i, 5, .55, .95, .2) : sandSpot(i, 6, .7, 1.75, .2);
+    grove.position.set(p.x, 0, p.z); grove.rotation.y = rnd(i*9)*6;
+    BLOBS.forEach(([x, y, z, k]) => { const b = mesh(bushGeos[k]); b.position.set(x, y, z); b.rotation.y = rnd(i*3 + k)*6; grove.add(b); });
+    // three flowers peeking out between the blobs: on top, and in the gaps either side
+    [[.06,.24,.03,.5],[.08,.13,.16,1.2],[-.07,.12,.17,1.1]].forEach(([x, y, z, tilt], k) => {
+      const f = plumeria(PLUMERIA[(i + k) % 3]); f.position.set(x, y, z); f.scale.setScalar(.75);
+      dir.set(x, tilt*.35, z).normalize(); f.quaternion.setFromUnitVectors(up, dir.lerp(up, .45).normalize());
+      grove.add(f);
+    });
+    // a fallen bloom or two on the sand beside it
+    if (i % 2 === 0){ const f = plumeria(PLUMERIA[i % 3]); f.position.set(-.05, .006, .26); f.scale.setScalar(.7); grove.add(f); }
+    add(groves, grove, .85 + rnd(i*4)*.3, i + 50);
+    groves.at(-1).foot = {x:p.x, z:p.z, r:.2, extra:true};
   }
   // pops each list up to n items: one at a time (gap seconds apart) or all at once
   const grow = (list, n, dt, instant, gap, state) => {
@@ -1524,7 +1545,7 @@ const islandDecor = (() => {
     });
     if (instant) list.forEach((o, i) => { if (i < n) o.started = true; });
   };
-  const st = {rocks:{t:0}, shells:{t:0}, flowers:{t:0}};
+  const st = {rocks:{t:0}, shells:{t:0}, groves:{t:0}};
   let level = -1, t = 0;
   return {
     update(dt, instant){
@@ -1533,7 +1554,14 @@ const islandDecor = (() => {
       if (L !== level){ level = L; tint(L ? .35 + .65*L/5 : 0); }
       grow(rocks, L >= 2 ? Math.min(rocks.length, (L - 1)*2) : 0, dt, instant, .5, st.rocks);
       grow(shells, L >= 3 ? (L - 2)*4 : 0, dt, instant, .3, st.shells);
-      grow(flowers, L >= 4 ? (L - 3)*7 : 0, dt, instant, .35, st.flowers);
+      grow(groves, L >= 4 ? (L - 3)*4 : 0, dt, instant, .6, st.groves);
+      // a thicket that's showing is solid: birds walk round it
+      const obs = RT.island.obstacles;
+      for (const o of groves){
+        const on = obs.includes(o.foot);
+        if (o.g.visible && !on) obs.push(o.foot);
+        else if (!o.g.visible && on) obs.splice(obs.indexOf(o.foot), 1);
+      }
       rocks.forEach(o => { o.g.position.y = -.07 + Math.sin(t*1.1 + o.ph)*.02; o.g.rotation.z = Math.sin(t*.8 + o.ph)*.05; });
     },
   };
