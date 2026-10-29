@@ -287,7 +287,7 @@ const SPECIES = {
   // 바닷가 외딴섬
   // black-tailed gull: darker grey back than the seagull, and a red-and-black tip on the yellow bill
   tailgull:  {tpl:'large', name:'괭이갈매기', voice:'야옹', head:'round', beak:'wedge', beakLen:.3, beakTip:'#c4323a', feet:'web', legLen:.45, lean:.04, tailUp:-.35, backTint:.25, eye:'#e8c84a', pupil:true,
-              stripes:true, scale:[1.05,1,1.05], rarity:.9,
+              stripes:true, tailBand:true, tailLen:1.3, scale:[1.05,1,1.05], rarity:.9,
               hint:'고양이처럼 야옹 하고 울며 섬 위를 맴돌아요.',
               colors:{head:'#f4f5f8',face:'#f4f5f8',neck:'#f4f5f8',breast:'#eef0f4',body:'#eef0f4',wing:'#5c6272',wingTip:'#18191e',beak:'#f0c419',legs:'#efc21a'}},
   // ancient murrelet: a chubby little auk, black cap, grey back, white belly, pale stubby bill
@@ -323,7 +323,8 @@ const ENV = {
   yard:{bg:0xf7f7f4}, pond:{bg:0xf7f7f4}, plaza:{bg:0xf7f7f4}, river:{bg:0xf4f7f6},
   forest:{bg:0x34423a, hemi:.62, ground:0x2b372f, sun:.58, shadow:.28},
   // cam: the island is seen from further back so the sea shows all round it
-  island:{bg:0x2f78a8, ground:0xb8d4dc, cam:8.4},
+  // birdScale: birds that come here are drawn a little smaller
+  island:{bg:0x2f78a8, ground:0xb8d4dc, cam:8.4, birdScale:.85},
 };
 // items are bought with feathers and placed one of each per place
 const ITEMS = {
@@ -496,7 +497,10 @@ function skinsFor(id){
       c.copy(C.wing).lerp(C.wingTip, ss(.45, .95, v));
       if (sp.stripes && v > .6){ const q = Math.floor(f/2); c.copy((Math.floor(q/3) + q%3) % 2 ? C.wingTip : white); }
     }, 6),
-    tail:  skin(P.tail, (c,x,y,z) => c.copy(C.wing).lerp(C.wingTip, ss(.3, 1, -z/tl)), 9),
+    // tailBand: a plain white tail; buildBird wraps a black band round it
+    tail:  skin(P.tail, (c,x,y,z) => sp.tailBand ? c.copy(C.body) : c.copy(C.wing).lerp(C.wingTip, ss(.3, 1, -z/tl)), 9),
+    band:  sp.tailBand ? solid(new THREE.CylinderGeometry(t.R*.38*.25*1.15, t.R*.38*.55*1.15, tl*.3, 4).rotateX(-Math.PI/2)
+                                 .translate(0, 0, -tl*.6).scale(1.25, .35*1.2, 1), sp.colors.wingTip, 11) : null,
     leg:   skin(P.leg, c => c.copy(C.legs), 10),
     feet:  skin(sp.feet === 'web' ? P.web : P.toes, (c,x,y,z) => c.copy(footC), 12),
   };
@@ -527,6 +531,7 @@ function buildBird(id){
     const w = mesh(G.wing); w.position.set(s*R*.8, bottom + H*.7, -R*.18); w.rotation.set(.34, 0, s*.03); torso.add(w); return w;
   });
   const tail = mesh(G.tail); tail.position.set(0, bottom + H*.2, -R*.7); tail.rotation.x = sp.tailUp; tail.scale.z = sp.tailLen || 1; torso.add(tail);
+  if (G.band) tail.add(mesh(G.band));
   const k = legLen/t.legLen;
   const legs = [-1, 1].map(s => {
     const lg = new THREE.Group(); lg.position.set(s*R*.32, 0, R*.05); hips.add(lg);
@@ -873,7 +878,7 @@ function placeItem(pid, kind, pop){
   if (kind === 'cleaner'){
     makeCleaner(rt, x, z);
     it.group = rt.cleaner.b.root; rt.items[kind] = it; rt.elements['item-' + kind] = it.group;
-    if (pop){ it.group.userData.target = 1; it.group.scale.setScalar(.001); it.group.userData.pop = 0; }
+    if (pop){ it.group.userData.target = it.group.scale.x; it.group.scale.setScalar(.001); it.group.userData.pop = 0; }
     return;
   }
   const addSpots = (g, list) => {
@@ -934,10 +939,11 @@ function makeCleaner(rt, x, z){
   const cap = mesh(solid(new THREE.CylinderGeometry(hr*.78, hr*.94, hr*.42, 6).translate(0, hh*.9, 0), blue, 502));
   const brim = mesh(solid(new THREE.CylinderGeometry(hr*.55, hr*.55, hr*.06, 6).scale(1, 1, 1.25).translate(0, hh*.74, hr*.72), darkBlue, 503));
   b.head.add(cap, brim);
-  b.root.position.set(x, 0, z); b.root.rotation.y = Math.atan2(-x, -z);
+  const k = ENV[rt.id].birdScale || 1;
+  b.root.position.set(x, 0, z); b.root.rotation.y = Math.atan2(-x, -z); b.root.scale.setScalar(k);
   rt.group.add(b.root);
   rt.cleaner = {rt, b, home:{x, z}, state:'idle', target:null, t:0, fly:0, peck:0, headYaw:0, headGoal:0, wiggle:0, hop:null, rest:0, lookT:1,
-                step:{len:.13*BK, time:.2, h:.012*BK}};
+                step:{len:.13*BK*k, time:.2, h:.012*BK*k}};
 }
 const SCRUB_R = .55;  // radius one scrub clears around its target stain
 function updateCleaner(rt, dt){
@@ -1783,9 +1789,10 @@ function spawnBird(rt, spot){
   };
   const id = pickW(unseen.length && Math.random() < .5 ? unseen : pool);
   const target = spot ? null : fb[Math.floor(Math.random()*fb.length)];
-  const b = buildBird(id), large = b.large, sp0 = SPECIES[id];
+  const b = buildBird(id), large = b.large, sp0 = SPECIES[id], k = ENV[rt.id].birdScale || 1;
+  b.root.scale.setScalar(k);
   // long beaks and necks reach food from further away
-  const a = Math.random()*Math.PI*2, reach = ((large ? .24 : .15) + Math.max(0, (sp0.beakLen || 0) - .3)*.4 + (sp0.neckLen ? .08 : 0))*BK*(SIZE[id] || 1);
+  const a = Math.random()*Math.PI*2, reach = ((large ? .24 : .15) + Math.max(0, (sp0.beakLen || 0) - .3)*.4 + (sp0.neckLen ? .08 : 0))*BK*(SIZE[id] || 1)*k;
   const p0 = new THREE.Vector3(Math.cos(a)*9, 4 + Math.random()*1.5, Math.sin(a)*9);
   let p2;
   if (spot) p2 = spot.pos.clone();
@@ -1797,7 +1804,7 @@ function spawnBird(rt, spot){
   const p1 = p0.clone().lerp(p2, .65); p1.y = Math.max(1.6, p2.y + .6);
   const B = {rt, b, id, state:'in', t:0, dur:p0.distanceTo(p2)/4.2, p0, p1, p2, target, fly:1, peck:0, headYaw:0, headGoal:0, lookT:1, full:0,
              hop:null, rest:0, reach, poopT:3 + Math.random()*6, restSpot:spot || null,
-             step: large ? {len:.13*BK, time:.2, h:.012*BK} : {len:.11*BK, time:.17, h:.035*BK}};
+             step: large ? {len:.13*BK*k, time:.2, h:.012*BK*k} : {len:.11*BK*k, time:.17, h:.035*BK*k}};
   if (spot) spot.occupant = B; else target.claimed = B;
   b.root.position.copy(p0);
   b.root.traverse(o => { o.userData.agent = B; });

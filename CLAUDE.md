@@ -49,6 +49,8 @@ The island (`buildIsland`):
 - The feeder there drops ready halves (`feederFood:'half'`).
 - Onboarding has two steps: `hint`, then `hint2`, which shows after the first drop until the first crack (`S.tried['island2']`).
 - It is the last and most expensive place (250 feathers), after the forest.
+- Birds there, including the cleaner, are drawn at `ENV.island.birdScale` (.85). Steps and reach scale with them.
+- `tailBand` on a species gives a white tail with a black band mesh wrapped round it. 괭이갈매기 uses it.
 - Its birds are 갈매기 `seagull` (removed from the pond), 괭이갈매기 `tailgull`, 바다쇠오리 `murrelet` (small template) and 가마우지 `cormorant`.
 - No staged decor or hidden object yet.
 
