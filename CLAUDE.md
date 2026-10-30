@@ -102,9 +102,16 @@ Hidden objects (`HIDDEN`):
   - Hidden motion: a bird stands on the stump strumming a tiny guitar with its wing (`startGuitarist`, `makeGuitar`).
     - Every 10 s there is a 30% chance.
     - There is no sound yet; the user will add it later.
+- 작은 물가 (`pond`) has a picnic mat (`PICNIC`, `placePicnic`) in the grass in front of the bread basket. It's pale red and white checks, with a closed little basket and a plate holding one hotdog.
+  - Birds sometimes peck at the hotdog (rest kind `hotdog`). Others sit side by side on the mat (rest kind `picnic`, 3 seats) holding a can of beer in a wing (`makeCan`).
+  - Each sip (`picnicPose`, lifting the wing to the beak) reddens the face one step via an emissive head material (`setDrunk`, `drunkMats`, levels 1–3).
+  - At level 3 the bird gets up (`getUp`) and staggers about, rolling and drifting.
+  - `MAX_DRUNK` (2) caps fully drunk birds; a drinker past the cap stops at level 2.
+  - When a drunk's wander ends, half the time it totters to the pond edge (`goDrinkWater` → `sipwater`) and sobers up. Otherwise it leaves on a weaving, rolling flight.
+  - `B.postPose` runs after `applyPose` each frame, for poses (like sipping) that override the wings.
 - The plaza has a longboard half-pipe that birds skate on.
 - After it is bought, rare odd moments happen in the plaza: a pigeon smoking at the foot of a lamp with the cigarette held in its wing, and a bird couple kissing on the facing bench.
-- Hidden objects for pond, river, forest and island are still to be directed by the user.
+- Hidden objects for river, forest and island are still to be directed by the user.
 
 ## Hidden motion: the dance
 

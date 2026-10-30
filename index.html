@@ -428,6 +428,9 @@ const SHOP_CATS = [['아이템', ITEM_ORDER.filter(k => !ITEMS[k].cat)], ['새�
 // where each item stands in each place [x, z]
 // 베리 마당's stump: in the open ground in front of the berry tree
 const STUMP = {x:0, z:2.25, r:.24, h:.2};
+// 작은 물가's picnic mat, in the open grass in front of the basket; rot turns it to face the usual view
+const PICNIC = {x:-.35, z:2.1, w:1.2, d:.9, rot:-.22};
+const POND_W = {x:1.5, z:-1.1, rx:2.0, rz:1.45};  // the pond's water ellipse
 const ITEM_SPOTS = {
   yard:  {perch:[-1.3,1.4], feeder:[.8,1.6],  house:[2.1,-.4],  collector:[-2.1,.4], cleaner:[-.6,2.0]},
   pond:  {perch:[-1.9,-.4], feeder:[.5,1.5],  house:[-1.2,-1.8], collector:[-2.1,1.0], cleaner:[-1.5,1.7]},
@@ -1823,6 +1826,8 @@ const plazaDecor = (() => {
 const HIDDEN = {
   yard:  {name:'작은 그루터기', cost:300,
           desc:'새들이 올라와 쉬거나 꾸벅꾸벅 잠을 자는 작은 그루터기예요. 가끔 그루터기 위에서 춤을 추거나, 작은 기타를 치는 새가 나타나요.'},
+  pond:  {name:'피크닉 돗자리', cost:300,
+          desc:'연빨강·하양 체크 돗자리에 닫힌 바구니와 핫도그 접시가 놓여 있어요. 새들이 핫도그를 쪼아 먹거나, 나란히 앉아 캔맥주를 마셔요. 너무 마시면… 비틀비틀.'},
   plaza: {name:'롱보드 하프파이프', cost:300,
           desc:'아치를 뒤집은 모양의 하프파이프와 롱보드예요. 가끔 새가 와서 롱보드를 타요. 광장의 새들이 아주 가끔 특이한 행동을 해요.'},
 };
@@ -1857,9 +1862,47 @@ function placeStump(rt, pop){
     ({kind:'stump', pos:new THREE.Vector3(x + dx, h, z + dz), yaw:.55 + (Math.random() - .5)*.8, occupant:null}));
   if (pop){ g.userData.target = 1; g.scale.setScalar(.001); g.userData.pop = 0; }
 }
+// picnic mat (pond hidden object): a checked mat, a closed basket, a plate with one hotdog
+function placePicnic(rt, pop){
+  const {x, z, w, d, rot} = PICNIC, g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot;
+  // the mat: 6 x 5 checks, pale red and white
+  const nx = 6, nz = 5, pos = [], cols = [], c = new THREE.Color(), red = col('#f0a2a2'), white = col('#fbf7f2');
+  for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++){
+    const x0 = -w/2 + w*i/nx, x1 = x0 + w/nx, z0 = -d/2 + d*j/nz, z1 = z0 + d/nz;
+    pos.push(x0,0,z0, x0,0,z1, x1,0,z1,  x0,0,z0, x1,0,z1, x1,0,z0);
+    c.copy((i + j) % 2 ? red : white); for (let v = 0; v < 6; v++) cols.push(c.r, c.g, c.b);
+  }
+  const matMesh = new THREE.Mesh(geoFrom(pos, null, cols), mat); matMesh.position.y = .008; matMesh.receiveShadow = true; g.add(matMesh);
+  // closed little basket, back left
+  const bk = new THREE.Group(); bk.position.set(-.4, 0, -.25);
+  bk.add(mesh(solid(new THREE.CylinderGeometry(.11, .09, .1, 6).translate(0, .06, 0), '#c99a5b', 980)),
+         mesh(solid(new THREE.CylinderGeometry(.12, .12, .025, 6).translate(0, .12, 0), '#b08347', 981)),
+         mesh(solid(new THREE.TorusGeometry(.08, .012, 3, 6, Math.PI).translate(0, .13, 0), '#9a7040', 982)));
+  g.add(bk);
+  // a plate with one hotdog
+  const pl = new THREE.Group(); pl.position.set(.15, 0, -.2);
+  pl.add(mesh(solid(new THREE.CylinderGeometry(.12, .1, .015, 8).translate(0, .016, 0), '#ffffff', 983)),
+         mesh(solid(new THREE.CylinderGeometry(.03, .03, .16, 6).rotateZ(Math.PI/2).scale(1, .8, 1).translate(0, .048, 0), '#e3b071', 984)),
+         mesh(solid(new THREE.CylinderGeometry(.017, .017, .19, 6).rotateZ(Math.PI/2).translate(0, .068, 0), '#c8553d', 985)),
+         mesh(solid(new THREE.BoxGeometry(.13, .004, .008).translate(0, .086, 0), '#f2c94a', 986)));
+  g.add(pl);
+  rt.group.add(g); g.updateMatrix();
+  const world = (lx, lz) => new THREE.Vector3(lx, 0, lz).applyMatrix4(g.matrix);
+  const bw = world(-.4, -.25), pw = world(.15, -.2);
+  addObstacle(rt, bw.x, bw.z, .14, true); addObstacle(rt, pw.x, pw.z, .12, true);
+  // three seats side by side along the front, and a spot to peck the hotdog from
+  const seats = [-.36, 0, .36].map(lx => { const v = world(lx, .22); v.y = .01;
+    return {kind:'picnic', pos:v, yaw:.3 + (Math.random() - .5)*.2, occupant:null}; });
+  const hd = world(.15, .02); hd.y = .01;
+  const hotdog = {kind:'hotdog', pos:hd, yaw:Math.atan2(pw.x - hd.x, pw.z - hd.z), occupant:null};
+  rt.hiddenObj = {g, picnic:true}; rt.elements.hidden = g;
+  rt.picnic = {seats, hotdog};
+  if (pop){ g.userData.target = 1; g.scale.setScalar(.001); g.userData.pop = 0; }
+}
 function placeHidden(pid, pop){
   const rt = RT[pid]; if (rt.hiddenObj) return;
   if (pid === 'yard') return placeStump(rt, pop);
+  if (pid === 'pond') return placePicnic(rt, pop);
   if (pid !== 'plaza') return;
   const {L, h, W} = HP, N = 12, sp = [], sc = [], wp = [], c = new THREE.Color();
   const woodA = col('#d9b98a'), woodB = col('#cba876');
@@ -2166,7 +2209,7 @@ function updateHidden(rt, dt){
     // every 10 s, a 30% chance of a guitar set on the stump
     rt.oddT = (rt.oddT ?? 10) - dt;
     if (rt.oddT <= 0){ rt.oddT = 10; if (Math.random() < .3 && !rt.extras.length) startGuitarist(rt); }
-  } else if (rt.hiddenObj){
+  } else if (rt.hiddenObj?.rider){  // the plaza half-pipe
     rt.skateT = (rt.skateT ?? 3) - dt;
     if (rt.skateT <= 0){ rt.skateT = 14 + Math.random()*10; startSkater(rt); }
     // every 10 s there's a small (7%) chance of one odd moment
@@ -2560,6 +2603,7 @@ function leave(B){
   setSit(B, null); B.b.root.rotation.z = 0;
   B.b.legs.forEach(l => { l.scale.y = 1; });  // unfold a wading flamingo's raised leg
   B.sleeping = false; B.sleepSide = false; B.danceOnArrival = false;
+  if (B.can){ B.can.parent?.remove(B.can); B.can = null; } B.postPose = null;
 }
 // how each kind of resting spot behaves; sit = how the bird sits there (legs tucked away)
 const REST = {
@@ -2570,7 +2614,53 @@ const REST = {
   loaf:  {stay:45, extra:35, feather:6, sit:'loaf'},
   wade:  {stay:35, extra:30, feather:7},
   stump: {stay:40, extra:40, feather:6, sit:'loaf'},
+  picnic:{stay:30, extra:20, feather:7, sit:'loaf'},
+  hotdog:{stay:3, extra:3, feather:99},
 };
+// ---------- picnic: hotdog pecking, beer on the mat, getting tipsy ----------
+const MAX_DRUNK = 2;  // never more than this many fully drunk birds about at once
+const drunkCount = rt => rt.birds.filter(b => (b.drunk || 0) >= 3).length;
+function picnicSpot(B, rt){
+  if (!rt.picnic || Math.random() >= .45) return null;
+  const hd = rt.picnic.hotdog;
+  if (!hd.occupant && Math.random() < .35) return hd;
+  if (drunkCount(rt) >= MAX_DRUNK) return null;
+  const f = rt.picnic.seats.filter(s => !s.occupant);
+  return f.length ? f[Math.floor(Math.random()*f.length)] : null;
+}
+// a face going red: the head's meshes switch to a material with more and more red glow
+const drunkMats = [mat, ...[.14, .28, .45].map(i => { const m = mat.clone(); m.emissive = new THREE.Color(0xff2a2a); m.emissiveIntensity = i; return m; })];
+function setDrunk(B, lvl){
+  B.drunk = lvl;
+  B.b.head.traverse(o => { if (o.isMesh) o.material = drunkMats[lvl]; });
+  if (!lvl){ B.b.root.rotation.z = 0; B.b.root.rotation.x = 0; }
+}
+function makeCan(R){
+  const g = new THREE.Group();
+  g.add(mesh(solid(new THREE.CylinderGeometry(R*.22, R*.22, R*.55, 6), '#d6dbe0', 990)),
+        mesh(solid(new THREE.CylinderGeometry(R*.225, R*.225, R*.3, 6), '#3f7fd1', 991)));
+  return g;
+}
+// sip: lift the wing with the can up to the beak and tip the head back
+function picnicPose(B){
+  const c = B.sipC, lift = c < 0 ? 0 : c < .5 ? ss(0, .5, c) : c < 1.1 ? 1 : c < 1.6 ? 1 - ss(1.1, 1.6, c) : 0;
+  B.b.wings[1].rotation.set(.34 + (-2.35 - .34)*lift, 0, .03 + (-.55 - .03)*lift);
+  B.b.neck.rotation.x -= .45*lift;
+}
+// fully drunk: get up off the mat and stagger about
+function getUp(B){
+  B.restSpot.occupant = null; B.restSpot = null;
+  if (B.can){ B.can.parent?.remove(B.can); B.can = null; }
+  B.postPose = null; setSit(B, null); B.b.root.position.y = 0;
+  B.state = 'look'; B.lookT = 6 + Math.random()*4; B.full = 3; B.restChecked = true; B.ph = Math.random()*6;
+}
+// half the drunks totter to the pond's edge to drink and sober up
+function goDrinkWater(B){
+  const p = B.b.root.position, dx = p.x - POND_W.x, dz = p.z - POND_W.z, a = Math.atan2(dz/POND_W.rz, dx/POND_W.rx);
+  B.waterAt = {x:POND_W.x + Math.cos(a)*POND_W.rx*1.16, z:POND_W.z + Math.sin(a)*POND_W.rz*1.16};
+  pushOut(B.rt, B.waterAt, .1*BK);
+  B.state = 'towater'; B.walkT = 0;
+}
 // with the stump bought, a fed bird often hops up onto it to rest
 function stumpSpot(B, rt){
   if (!rt.stumpSpots || Math.random() >= .55) return null;
@@ -2652,6 +2742,11 @@ function updateBird(B, dt){
     bez(B, Math.min(1, u + .02), v3);
     if (Math.hypot(v3.x - r.position.x, v3.z - r.position.z) > 1e-4) faceTo(B, Math.atan2(v3.x - r.position.x, v3.z - r.position.z), dt*3);
     B.fly = B.state === 'in' ? (B.t < .85 ? 1 : 1 - (B.t - .85)/.15) : Math.min(1, B.t*6);
+    // still tipsy on the way out: the flight weaves and rolls
+    if (B.state === 'out' && (B.drunk || 0) >= 2){
+      r.position.x += Math.sin(B.t*16)*.22*(1 - B.t*.5); r.position.z += Math.cos(B.t*13)*.22*(1 - B.t*.5);
+      r.rotation.z = Math.sin(B.t*14)*.55;
+    }
     if (B.t >= 1){
       if (B.state === 'in'){
         B.fly = 0;
@@ -2670,6 +2765,12 @@ function updateBird(B, dt){
           setSit(B, R.sit);
           // wading flamingo: one leg folded up behind, standing on the other in the shallows
           if (B.restSpot.kind === 'wade'){ const lg = B.b.legs[0]; lg.rotation.x = 1.25; lg.scale.y = .55; }
+          if (B.restSpot.kind === 'picnic'){
+            // sit on the mat with a can in the left wing
+            B.can = makeCan(TPL[B.b.sp.tpl].R); B.can.position.set(-.02, -TPL[B.b.sp.tpl].L*.8, .05); B.can.rotation.x = -.3;
+            B.b.wings[1].add(B.can); B.sipT = 1 + Math.random()*2; B.sipC = -1; B.postPose = () => picnicPose(B);
+          }
+          if (B.restSpot.kind === 'hotdog') setSit(B, null);
           if (B.restSpot.kind === 'stump'){
             if (B.danceOnArrival){
               // came to dance: stand up on the stump and dance a while, then rest a moment and go
@@ -2703,8 +2804,30 @@ function updateBird(B, dt){
     else if (B.sleeping){ B.headGoal = 2.5; B.peck = .22; }   // dozing: head turned back and tucked down
     // an awake bird on the stump sometimes just gets up and dances
     else if (kind === 'stump' && Math.random() < dt*.08){ setSit(B, null); B.dance = B.danceLen = 4 + Math.random()*2; }
+    else if (kind === 'hotdog') B.peck = Math.abs(Math.sin(B.restClock*Math.PI*2.2));  // peck, peck at the hotdog
     else if (Math.random() < dt*.6) B.headGoal = (Math.random() - .5)*1.6;
+    if (kind === 'picnic'){
+      if (B.sipC < 0 && (B.sipT -= dt) <= 0) B.sipC = 0;
+      if (B.sipC >= 0 && (B.sipC += dt) >= 1.6){
+        B.sipC = -1; B.sipT = 2 + Math.random()*2.5;
+        // each can-sip reddens the face a step; the third makes it fully drunk (unless too many already are)
+        const next = Math.min(3, (B.drunk || 0) + 1);
+        if (next < 3 || drunkCount(rt) < MAX_DRUNK){ setDrunk(B, next); if (next >= 3){ getUp(B); applyPose(B); return; } }
+      }
+    }
     if ((B.restT -= dt) <= 0) leave(B);
+  } else if (B.state === 'towater'){
+    const dx = B.waterAt.x - r.position.x, dz = B.waterAt.z - r.position.z, d = Math.hypot(dx, dz);
+    faceTo(B, Math.atan2(dx, dz), dt);
+    B.walkT += dt;
+    if ((d < .05 && !B.hop) || B.walkT > 8){
+      // face the water and dip the beak in a few times
+      faceTo(B, Math.atan2(POND_W.x - r.position.x, POND_W.z - r.position.z), 1);
+      B.state = 'sipwater'; B.eatT = 0;
+    } else stepToward(B, B.waterAt.x, B.waterAt.z, dt);
+  } else if (B.state === 'sipwater'){
+    B.eatT += dt; B.peck = Math.abs(Math.sin(B.eatT*Math.PI*1.6));
+    if (B.eatT >= 3.2){ B.peck = 0; setDrunk(B, 0); B.state = 'look'; B.lookT = 2 + Math.random()*2; }
   } else {
     if (B.state !== 'eat' && (B.poopT -= dt) <= 0){ poop(B); B.poopT = 6 + Math.random()*9; }
     if (B.state === 'walk'){
@@ -2742,7 +2865,7 @@ function updateBird(B, dt){
       } else {
         if (!B.restChecked){
           B.restChecked = true;
-          const sp = wadeSpot(B, rt) || stumpSpot(B, rt) || specialSpot(rt) || (Math.random() < .7 ? freeSpot(rt) : null);
+          const sp = wadeSpot(B, rt) || stumpSpot(B, rt) || picnicSpot(B, rt) || specialSpot(rt) || (Math.random() < .7 ? freeSpot(rt) : null);
           if (sp && !B.hop){ r.position.y = 0; goRest(B, sp); applyPose(B); return; }
         }
         B.lookT -= dt;
@@ -2763,12 +2886,21 @@ function updateBird(B, dt){
             });
           }
         }
-        if (B.lookT <= 0) leave(B);
+        if (B.lookT <= 0){
+          if ((B.drunk || 0) >= 3 && !B.triedWater && rt.id === 'pond' && Math.random() < .5){ B.triedWater = true; goDrinkWater(B); }
+          else leave(B);
+        }
       }
     }
   }
+  // a drunk bird reels about: rolling side to side and drifting off its line
+  if ((B.drunk || 0) >= 3 && (B.state === 'look' || B.state === 'walk' || B.state === 'towater')){
+    const ph = B.ph || 0;
+    r.rotation.z = Math.sin(T0*3.2 + ph)*.28; r.rotation.x = Math.sin(T0*2.3 + ph)*.08;
+    r.position.x += Math.cos(T0*2.1 + ph)*dt*.18; r.position.z += Math.sin(T0*1.7 + ph)*dt*.18;
+  }
   // birds on the ground never stand inside trunks, benches or sacks
-  if (B.state === 'walk' || B.state === 'eat' || B.state === 'look'){
+  if (B.state === 'walk' || B.state === 'eat' || B.state === 'look' || B.state === 'towater'){
     pushOut(rt, r.position, (B.b.large ? .16 : .1)*BK);
     // on the island, nobody wanders off the sand into the sea
     const d = Math.hypot(r.position.x, r.position.z), lim = rt.bound && rt.bound + .2;
@@ -2780,6 +2912,7 @@ function updateBird(B, dt){
   B.headYaw += (B.headGoal - B.headYaw)*Math.min(1, dt*8);
   if (B.state !== 'look' && B.state !== 'rest') B.headGoal = 0;
   applyPose(B);
+  B.postPose?.();
 }
 function clearBirds(rt){
   for (const B of rt.birds) rt.group.remove(B.b.root);
@@ -2789,6 +2922,7 @@ function clearBirds(rt){
   for (const s of rt.specials) s.occupant = null;
   for (const s of rt.wadeSpots || []) s.occupant = null;
   for (const s of rt.stumpSpots || []) s.occupant = null;
+  if (rt.picnic){ rt.picnic.seats.forEach(s => { s.occupant = null; }); rt.picnic.hotdog.occupant = null; }
   // scripted moments end too; the longboard goes back to the bottom of the ramp
   for (const e of rt.extras) e.actors.forEach(removeActor);
   rt.extras = [];
@@ -3098,7 +3232,7 @@ function resetAll(){
     rt.cleaning = -1;
     for (const k in rt.elements) rt.group.remove(rt.elements[k]);
     for (const k in rt.items) rt.group.remove(rt.items[k].group);
-    rt.elements = {}; rt.items = {}; rt.spots = []; rt.cleaner = null; rt.hiddenObj = null; rt.stumpSpots = null;
+    rt.elements = {}; rt.items = {}; rt.spots = []; rt.cleaner = null; rt.hiddenObj = null; rt.stumpSpots = null; rt.picnic = null;
     rt.specials = rt.specials.filter(s => s.kind !== 'bowl');
     rt.obstacles = rt.obstacles.filter(o => !o.extra);
     rt.sources = rt.sources.filter(s => !s.extra);
