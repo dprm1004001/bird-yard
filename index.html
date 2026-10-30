@@ -3830,7 +3830,7 @@ addEventListener('resize', resize);
 const clock = new THREE.Clock();
 // ---------- ambient sound per place: a looping bed that fades in while you're there and out when you leave ----------
 // Browsers only allow sound after the player's first tap, so nothing plays until then.
-const AMBIENT = {yard:{src:'sounds/yard-spring-noon.mp3', vol:.22}, pond:{src:'sounds/pond-spring.mp3', vol:.22}, plaza:{src:'sounds/plaza-town-square.mp3', vol:.22}, island:{src:'sounds/sea-seagull.mp3', vol:.22}};
+const AMBIENT = {yard:{src:'sounds/yard-spring-noon.mp3', vol:.22}, pond:{src:'sounds/pond-spring.mp3', vol:.22}, plaza:{src:'sounds/plaza-town-square.mp3', vol:.22}, forest:{src:'sounds/forest-night-crickets.mp3', vol:.22}, island:{src:'sounds/sea-seagull.mp3', vol:.22}};
 // the speaker button under the camera turns every sound off and on; the choice is remembered on this device
 const MUTE_KEY = 'berry-yard-muted';
 let muted = false;
@@ -3854,7 +3854,8 @@ addEventListener('pointerdown', () => {
 }, {capture:true});
 function updateAmbient(dt){
   for (const pid in AMBIENT){
-    const want = soundOK && !muted && pid === cur && !document.hidden && !document.getElementById('title') ? AMBIENT[pid].vol : 0;
+    // the pumpkin siren show takes over the forest's sound while it runs
+    const want = soundOK && !muted && pid === cur && !document.hidden && !document.getElementById('title') && !RT[pid].show ? AMBIENT[pid].vol : 0;
     let a = ambient[pid];
     if (!a){ if (!want) continue; a = ambient[pid] = new Audio(AMBIENT[pid].src); a.loop = true; a.volume = 0; }
     a.volume = Math.max(0, Math.min(1, a.volume + Math.sign(want - a.volume)*Math.min(Math.abs(want - a.volume), dt*.4)));
