@@ -2747,13 +2747,18 @@ function makeTowel(B){
   m.position.set(0, hd.hh*.97, -t.hr*.05); m.rotation.set(-.12, .3, .08); m.userData.towel = true;
   B.b.head.add(m); return m;
 }
-// boiled red: scramble out of the spring and either fly off to float on the river or run to its bank
+// somewhere on the river to float and cool off: a free floating spot near x, or a fresh patch of water
+function coolSpot(rt, x){
+  const w = rt.specials.filter(s => s.kind === 'water' && !s.occupant).sort((a, b) => Math.abs(a.pos.x - x) - Math.abs(b.pos.x - x))[0];
+  return w || {kind:'water', pos:new THREE.Vector3(x + (Math.random() - .5)*.4, .004, -.6 - Math.random()*.6), yaw:Math.random()*6, occupant:null};
+}
+// boiled red: scramble out of the spring and either fly straight onto the river or dash to its bank and hop in,
+// then float there, cooling slowly
 function hotExit(B){
   const rt = B.rt, r = B.b.root;
   B.restSpot.occupant = null; B.restSpot = null; setSit(B, null);
   B.full = 3; B.restChecked = true;
-  const w = Math.random() < .5 ? rt.specials.filter(s => s.kind === 'water' && !s.occupant) : [];
-  if (w.length){ goRest(B, w[Math.floor(Math.random()*w.length)]); B.dur *= .55; return; }
+  if (Math.random() < .5){ goRest(B, coolSpot(rt, r.position.x)); B.dur *= .55; return; }
   const p = r.position, a = Math.atan2(-.02 - p.z, -1.1 - p.x);
   B.coolAt = {x:p.x - .4 + Math.random()*.3, z:.02};
   B.state = 'tocool'; B.walkT = 0; B.rush = true;
@@ -2942,16 +2947,12 @@ function updateBird(B, dt){
       B.state = 'sipwater'; B.eatT = 0;
     } else stepToward(B, B.waterAt.x, B.waterAt.z, dt);
   } else if (B.state === 'tocool'){
-    // a boiled bird dashes to the river's edge
+    // a boiled bird dashes to the river's edge, then hops in to float
     const dx = B.coolAt.x - r.position.x, dz = B.coolAt.z - r.position.z, d = Math.hypot(dx, dz);
     faceTo(B, Math.atan2(dx, dz), dt*2);
     B.walkT += dt;
-    if ((d < .05 && !B.hop) || B.walkT > 9){ faceTo(B, Math.PI, 1); B.state = 'cooling'; B.eatT = 0; B.rush = false; }
+    if ((d < .05 && !B.hop) || B.walkT > 9){ B.rush = false; r.position.y = 0; goRest(B, coolSpot(rt, r.position.x)); B.dur *= .7; }
     else { stepToward(B, B.coolAt.x, B.coolAt.z, dt); checkStuck(B, dt, true, () => ({x:B.coolAt.x, z:B.coolAt.z})); }
-  } else if (B.state === 'cooling'){
-    // dipping its beak in the cold river till the red fades
-    B.eatT += dt; B.peck = Math.abs(Math.sin(B.eatT*Math.PI*1.4))*.8;
-    if (B.heat <= .08 || B.eatT > 16){ B.peck = 0; B.state = 'look'; B.lookT = 3 + Math.random()*3; }
   } else if (B.state === 'sipwater'){
     B.eatT += dt; B.peck = Math.abs(Math.sin(B.eatT*Math.PI*1.6));
     if (B.eatT >= 3.2){ B.peck = 0; setDrunk(B, 0); B.state = 'look'; B.lookT = 2 + Math.random()*2; }
@@ -3027,7 +3028,7 @@ function updateBird(B, dt){
     r.position.x += Math.cos(T0*2.1 + ph)*dt*.18; r.position.z += Math.sin(T0*1.7 + ph)*dt*.18;
   }
   // birds on the ground never stand inside trunks, benches or sacks
-  if (B.state === 'walk' || B.state === 'eat' || B.state === 'look' || B.state === 'towater' || B.state === 'tocool' || B.state === 'cooling'){
+  if (B.state === 'walk' || B.state === 'eat' || B.state === 'look' || B.state === 'towater' || B.state === 'tocool'){
     pushOut(rt, r.position, (B.b.large ? .16 : .1)*BK);
     // on the island, nobody wanders off the sand into the sea
     const d = Math.hypot(r.position.x, r.position.z), lim = rt.bound && rt.bound + .2;
@@ -3035,8 +3036,8 @@ function updateBird(B, dt){
   }
   // out of the spring, a hot bird cools slowly back to its own colours (fast in the river), steaming while it's still red
   if (B.heat > 0 && !(B.state === 'rest' && B.restSpot?.kind === 'bath')){
-    const wet = B.state === 'cooling' || (B.state === 'rest' && B.restSpot?.kind === 'water');
-    setHeat(B, B.heat - dt/(wet ? 9 : 22));
+    const wet = B.state === 'rest' && B.restSpot?.kind === 'water';
+    setHeat(B, B.heat - dt/(wet ? 16 : 22));
     if (B.heat > .55 && Math.random() < dt*2.5){ B.b.head.getWorldPosition(v3); puff(rt, v3); }
   }
   // flamingos idle on one leg: the other is tucked up out of sight while standing about

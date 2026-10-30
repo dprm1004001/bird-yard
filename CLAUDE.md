@@ -117,11 +117,11 @@ Hidden objects (`HIDDEN`):
   - Fed birds often go to soak (`bathSpot`, 50%; rest kind `bath`, 4 spots, sit `float`).
     - About half lay a small white towel on the head (`makeTowel`) and sit still. The rest splash about, flapping and throwing droplets.
     - Soaking raises `B.heat`, which turns the whole bird redder in 8 emissive steps (`setHeat`, `heatMats`). Towel birds heat faster.
-  - Some bathers stay until they're boiled red (`B.soakLong`). At full heat they scramble out (`hotExit`):
-    - Half fly off fast to float on the river.
-    - Otherwise they dash (`B.rush`) to the riverbank (`tocool`), then dip their beak there (`cooling`).
+  - Some bathers stay until they're boiled red (`B.soakLong`). At full heat they scramble out (`hotExit`) and always end up floating on the river to cool (`coolSpot`: a free water spot, or a fresh patch of river). The user rejected drinking at the bank.
+    - Half fly straight onto the river, fast.
+    - The rest dash (`B.rush`) to the bank (`tocool`), then hop in and float.
     - The others get out while only a little pink.
-  - Out of the spring, heat fades slowly back to the bird's own colours, faster in the river. A hot bird puffs steam.
+  - Out of the spring, heat fades slowly back to the bird's own colours (about 16 s floating on the river, 22 s elsewhere). A hot bird puffs steam.
 - Hidden objects for forest and island are still to be directed by the user.
 
 ## Hidden motion: the dance
