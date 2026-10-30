@@ -92,9 +92,13 @@ Shop items, one of each per place:
 
 Hidden objects (`HIDDEN`):
 - Once all five items are placed in a place, its hidden object unlocks. It shows as "???" in the shop, with a toast and a red dot on 상점.
-- Only the plaza has one so far: a longboard half-pipe that birds skate on.
+- 베리 마당 (`yard`) has a small stump (`STUMP`, `placeStump`) in the open ground in front of the berry tree.
+  - Fed birds often hop onto it (`stumpSpot`, 35%) to loaf. About half of them doze off, head turned back (`B.sleeping`).
+  - Every 25–50 s a bird may fly in just to dance on it (`danceOnArrival`).
+  - Rare hidden motion: a bird stands on the stump strumming a tiny guitar with its wing (`startGuitarist`, `makeGuitar`). There is no sound yet; the user will add it later.
+- The plaza has a longboard half-pipe that birds skate on.
 - After it is bought, rare odd moments happen in the plaza: a pigeon smoking at the foot of a lamp with the cigarette held in its wing, and a bird couple kissing on the facing bench.
-- The other places' hidden objects are still to be directed by the user.
+- Hidden objects for pond, river, forest and island are still to be directed by the user.
 
 ## Hidden motion: the dance
 

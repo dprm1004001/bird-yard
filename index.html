@@ -426,6 +426,8 @@ const ITEMS = {
 const ITEM_ORDER = ['perch','feeder','house','collector','cleaner'];
 const SHOP_CATS = [['아이템', ITEM_ORDER.filter(k => !ITEMS[k].cat)], ['새똥 청소부', ITEM_ORDER.filter(k => ITEMS[k].cat === 'cleaner')]];
 // where each item stands in each place [x, z]
+// 베리 마당's stump: in the open ground in front of the berry tree
+const STUMP = {x:0, z:2.25, r:.24, h:.2};
 const ITEM_SPOTS = {
   yard:  {perch:[-1.3,1.4], feeder:[.8,1.6],  house:[2.1,-.4],  collector:[-2.1,.4], cleaner:[-.6,2.0]},
   pond:  {perch:[-1.9,-.4], feeder:[.5,1.5],  house:[-1.2,-1.8], collector:[-2.1,1.0], cleaner:[-1.5,1.7]},
@@ -1153,7 +1155,7 @@ function flatten(geo){
 const yardDecor = (() => {
   const g = new THREE.Group(); RT.yard.group.add(g);
   // keep decor off the tree, elements and item spots
-  const avoid = {obstacles:[{x:0,z:0,r:.45},{x:-1.9,z:-.7,r:.35},{x:1.8,z:.9,r:.72},{x:1.2,z:-1.6,r:.42},
+  const avoid = {obstacles:[{x:0,z:0,r:.45},{x:STUMP.x,z:STUMP.z,r:.42},{x:-1.9,z:-.7,r:.35},{x:1.8,z:.9,r:.72},{x:1.2,z:-1.6,r:.42},
     ...Object.values(ITEM_SPOTS.yard).map(([x, z]) => ({x, z, r:.38}))]};
   const spot = (i, salt, rMax = 3.1) => {
     const a = rnd(i*12.9 + salt)*Math.PI*2, d = .55 + Math.sqrt(rnd(i*7.3 + salt*3))*(rMax - .55);
@@ -1815,6 +1817,8 @@ const plazaDecor = (() => {
 //  Until bought it is listed only as "???".
 // ======================================================================
 const HIDDEN = {
+  yard:  {name:'작은 그루터기', cost:300,
+          desc:'새들이 올라와 쉬거나 꾸벅꾸벅 잠을 자는 작은 그루터기예요. 가끔 그루터기 위에서 춤을 추거나, 작은 기타를 치는 새가 나타나요.'},
   plaza: {name:'롱보드 하프파이프', cost:300,
           desc:'아치를 뒤집은 모양의 하프파이프와 롱보드예요. 가끔 새가 와서 롱보드를 타요. 광장의 새들이 아주 가끔 특이한 행동을 해요.'},
 };
@@ -1827,8 +1831,30 @@ function geoFrom(p, hex, cols){
   b.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); b.computeVertexNormals();
   return b;
 }
+function placeStump(rt, pop){
+  const {x, z, r, h} = STUMP, g = new THREE.Group(); g.position.set(x, 0, z);
+  g.add(mesh(solid(new THREE.CylinderGeometry(r*.92, r*1.1, h, 7).translate(0, h/2, 0), '#7a5434', 950, .02)));
+  // the cut face: growth rings in two alternating woods
+  const rings = 3, faceSegs = 7;
+  g.add(mesh(skin(shape(new THREE.RingGeometry(.01, r*.9, faceSegs, rings).rotateX(-Math.PI/2).translate(0, h + .002, 0)),
+    (c,px,py,pz,f) => c.set(Math.floor(f/(faceSegs*2)) % 2 ? '#c9a06a' : '#dfbd8b'), 951)));
+  // three stubby roots
+  for (let i = 0; i < 3; i++){
+    const a = i*2.1 + .4, root = mesh(solid(new THREE.ConeGeometry(.045, .2, 3).rotateZ(Math.PI/2).translate(.1, .03, 0), '#6b4a33', 952 + i));
+    root.position.set(Math.cos(a)*r*.85, 0, Math.sin(a)*r*.85); root.rotation.y = -a; g.add(root);
+  }
+  rt.group.add(g);
+  rt.hiddenObj = {g, stump:true}; rt.elements.hidden = g;
+  addObstacle(rt, x, z, r + .04, true);
+  // two places on top to sit, loaf or doze
+  rt.stumpSpots = [[-.07,0],[.07,.02]].map(([dx, dz]) =>
+    ({kind:'stump', pos:new THREE.Vector3(x + dx, h, z + dz), yaw:.55 + (Math.random() - .5)*.8, occupant:null}));
+  if (pop){ g.userData.target = 1; g.scale.setScalar(.001); g.userData.pop = 0; }
+}
 function placeHidden(pid, pop){
-  const rt = RT[pid]; if (pid !== 'plaza' || rt.hiddenObj) return;
+  const rt = RT[pid]; if (rt.hiddenObj) return;
+  if (pid === 'yard') return placeStump(rt, pop);
+  if (pid !== 'plaza') return;
   const {L, h, W} = HP, N = 12, sp = [], sc = [], wp = [], c = new THREE.Color();
   const woodA = col('#d9b98a'), woodB = col('#cba876');
   for (let i = 0; i < N; i++){
@@ -2019,8 +2045,60 @@ function startCouple(rt){
     applyPose(A1); applyPose(A2); return true;
   }});
 }
+// a tiny guitar, sized to the bird's body radius R: two bouts, a sound hole, neck and head
+function makeGuitar(R){
+  const g = new THREE.Group(), wood = '#d9a066';
+  g.add(mesh(solid(new THREE.CylinderGeometry(R*.55, R*.55, R*.16, 7).rotateX(Math.PI/2), wood, 960)),
+        mesh(solid(new THREE.CylinderGeometry(R*.42, R*.42, R*.16, 7).rotateX(Math.PI/2).translate(0, R*.62, 0), wood, 961)),
+        mesh(solid(new THREE.CircleGeometry(R*.15, 6).translate(0, R*.3, R*.085), '#2b1d14', 962)),
+        mesh(solid(new THREE.BoxGeometry(R*.14, R*1.3, R*.08).translate(0, R*1.4, 0), '#6b4a33', 963)),
+        mesh(solid(new THREE.BoxGeometry(R*.22, R*.3, R*.08).translate(0, R*2.15, 0), '#4a3324', 964)));
+  return g;
+}
+// rare: a bird stands on the stump with a little guitar and strums it, very badly, with a wing
+function startGuitarist(rt){
+  const spots = rt.stumpSpots; if (!spots || spots.some(s => s.occupant)) return;
+  const pool = poolFor('yard'), A = actor(rt, pool[Math.floor(Math.random()*pool.length)]), b = A.b, t = TPL[b.sp.tpl];
+  const gtr = makeGuitar(t.R);
+  // held across the chest, neck pointing up to the bird's left
+  gtr.position.set(t.R*.15, t.bottom + t.H*.36, t.R*.95); gtr.rotation.z = -.95; b.torso.add(gtr);
+  const hold = {}; spots.forEach(s => { s.occupant = hold; });
+  flyTo(A, skyPoint(), new THREE.Vector3(STUMP.x, STUMP.h, STUMP.z));
+  let state = 'in', life = 0;
+  rt.extras.push({kind:'guitar', actors:[A], update(dt){
+    if (state === 'in'){
+      if (flyStep(A, dt, true)){ state = 'play'; A.fly = 0; b.root.position.y = STUMP.h; b.root.rotation.y = .55; }
+      applyPose(A);
+    } else if (state === 'play'){
+      life += dt;
+      applyPose(A);
+      // right wing (bird's right is -x) swings across the strings; left wing grips the neck
+      const strum = Math.sin(life*15);
+      b.wings[0].rotation.set(-1.0 + strum*.12, 0, .55 + strum*.3);
+      b.wings[1].rotation.set(-1.55, 0, -.25);
+      b.neck.rotation.x += Math.sin(life*7.5)*.12;            // nodding along
+      b.torso.rotation.z = Math.sin(life*3.75)*.05;           // a little sway
+      if (life > 14){ state = 'out'; b.torso.rotation.z = 0; spots.forEach(s => { if (s.occupant === hold) s.occupant = null; }); flyTo(A, b.root.position, skyPoint()); }
+    } else {
+      if (flyStep(A, dt, false)){ removeActor(A); return false; }
+      applyPose(A);
+    }
+    return true;
+  }});
+}
 function updateHidden(rt, dt){
-  if (rt.hiddenObj){
+  if (rt.hiddenObj?.stump){
+    // now and then a bird comes over just to dance on the stump
+    rt.stumpDanceT = (rt.stumpDanceT ?? 20) - dt;
+    if (rt.stumpDanceT <= 0){
+      rt.stumpDanceT = 25 + Math.random()*25;
+      const sp = rt.stumpSpots.find(s => !s.occupant);
+      if (sp && Math.random() < .5){ spawnBird(rt, sp); const B = rt.birds[rt.birds.length - 1]; if (B?.restSpot === sp) B.danceOnArrival = true; }
+    }
+    // every 10 s, a small (8%) chance of a guitar set on the stump
+    rt.oddT = (rt.oddT ?? 10) - dt;
+    if (rt.oddT <= 0){ rt.oddT = 10; if (Math.random() < .08 && !rt.extras.length) startGuitarist(rt); }
+  } else if (rt.hiddenObj){
     rt.skateT = (rt.skateT ?? 3) - dt;
     if (rt.skateT <= 0){ rt.skateT = 14 + Math.random()*10; startSkater(rt); }
     // every 10 s there's a small (7%) chance of one odd moment
@@ -2413,6 +2491,7 @@ function leave(B){
   if (B.restSpot){ B.restSpot.occupant = null; B.restSpot = null; }
   setSit(B, null); B.b.root.rotation.z = 0;
   B.b.legs.forEach(l => { l.scale.y = 1; });  // unfold a wading flamingo's raised leg
+  B.sleeping = false; B.danceOnArrival = false;
 }
 // how each kind of resting spot behaves; sit = how the bird sits there (legs tucked away)
 const REST = {
@@ -2422,7 +2501,14 @@ const REST = {
   bowl:  {stay:30, extra:20, feather:7, sit:'float'},
   loaf:  {stay:45, extra:35, feather:6, sit:'loaf'},
   wade:  {stay:35, extra:30, feather:7},
+  stump: {stay:40, extra:40, feather:6, sit:'loaf'},
 };
+// with the stump bought, a fed bird often hops up onto it to rest
+function stumpSpot(B, rt){
+  if (!rt.stumpSpots || Math.random() >= .35) return null;
+  const f = rt.stumpSpots.filter(s => !s.occupant);
+  return f.length ? f[Math.floor(Math.random()*f.length)] : null;
+}
 // a flamingo with nothing left to eat usually goes to stand on one leg in the island's surf
 function wadeSpot(B, rt){
   if (!B.b.sp.oneLeg || !rt.wadeSpots || Math.random() >= .75) return null;
@@ -2516,6 +2602,12 @@ function updateBird(B, dt){
           setSit(B, R.sit);
           // wading flamingo: one leg folded up behind, standing on the other in the shallows
           if (B.restSpot.kind === 'wade'){ const lg = B.b.legs[0]; lg.rotation.x = 1.25; lg.scale.y = .55; }
+          if (B.restSpot.kind === 'stump'){
+            if (B.danceOnArrival){
+              // came to dance: stand up on the stump and dance a while, then rest a moment and go
+              setSit(B, null); B.dance = B.danceLen = 5 + Math.random()*2; B.restT = 3;
+            } else B.sleeping = Math.random() < .55;  // otherwise often nods off, head tucked back
+          }
         } else { r.position.y = 0; B.state = 'walk'; }
       }
       else { rt.group.remove(r); rt.birds = rt.birds.filter(x => x !== B); }
@@ -2536,7 +2628,8 @@ function updateBird(B, dt){
       r.rotation.z = Math.sin(B.restClock*1.7)*.04;
     } else if ((B.poopT -= dt) <= 0){ poop(B); B.poopT = 8 + Math.random()*10; }
     if ((B.featherT -= dt) <= 0){ dropFeather(rt, r.position); B.featherT = R.feather + Math.random()*4; }
-    if (Math.random() < dt*.6) B.headGoal = (Math.random() - .5)*1.6;
+    if (B.sleeping){ B.headGoal = 2.5; B.peck = .22; }   // dozing: head turned back and tucked down
+    else if (Math.random() < dt*.6) B.headGoal = (Math.random() - .5)*1.6;
     if ((B.restT -= dt) <= 0) leave(B);
   } else {
     if (B.state !== 'eat' && (B.poopT -= dt) <= 0){ poop(B); B.poopT = 6 + Math.random()*9; }
@@ -2575,7 +2668,7 @@ function updateBird(B, dt){
       } else {
         if (!B.restChecked){
           B.restChecked = true;
-          const sp = wadeSpot(B, rt) || specialSpot(rt) || (Math.random() < .7 ? freeSpot(rt) : null);
+          const sp = wadeSpot(B, rt) || stumpSpot(B, rt) || specialSpot(rt) || (Math.random() < .7 ? freeSpot(rt) : null);
           if (sp && !B.hop){ r.position.y = 0; goRest(B, sp); applyPose(B); return; }
         }
         B.lookT -= dt;
@@ -2621,12 +2714,13 @@ function clearBirds(rt){
   for (const s of rt.spots) s.occupant = null;
   for (const s of rt.specials) s.occupant = null;
   for (const s of rt.wadeSpots || []) s.occupant = null;
+  for (const s of rt.stumpSpots || []) s.occupant = null;
   // scripted moments end too; the longboard goes back to the bottom of the ramp
   for (const e of rt.extras) e.actors.forEach(removeActor);
   rt.extras = [];
   for (const p of rt.puffs) rt.group.remove(p.m);
   rt.puffs = [];
-  if (rt.hiddenObj){ rt.hiddenObj.rider.position.set(0, .02, 0); rt.hiddenObj.rider.rotation.set(0, 0, 0); }
+  if (rt.hiddenObj?.rider){ rt.hiddenObj.rider.position.set(0, .02, 0); rt.hiddenObj.rider.rotation.set(0, 0, 0); }
 }
 
 // overlay for the feather orbs flying to the counter
@@ -2924,7 +3018,7 @@ function resetAll(){
     rt.cleaning = -1;
     for (const k in rt.elements) rt.group.remove(rt.elements[k]);
     for (const k in rt.items) rt.group.remove(rt.items[k].group);
-    rt.elements = {}; rt.items = {}; rt.spots = []; rt.cleaner = null; rt.hiddenObj = null;
+    rt.elements = {}; rt.items = {}; rt.spots = []; rt.cleaner = null; rt.hiddenObj = null; rt.stumpSpots = null;
     rt.specials = rt.specials.filter(s => s.kind !== 'bowl');
     rt.obstacles = rt.obstacles.filter(o => !o.extra);
     rt.sources = rt.sources.filter(s => !s.extra);
