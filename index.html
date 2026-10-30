@@ -1866,7 +1866,7 @@ function placeStump(rt, pop){
 function placePicnic(rt, pop){
   const {x, z, w, d, rot} = PICNIC, g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot;
   // the mat: 6 x 5 checks, pale red and white
-  const nx = 6, nz = 5, pos = [], cols = [], c = new THREE.Color(), red = col('#f0a2a2'), white = col('#fbf7f2');
+  const nx = 6, nz = 5, pos = [], cols = [], c = new THREE.Color(), red = col('#d26e62'), white = col('#fbf7f2');
   for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++){
     const x0 = -w/2 + w*i/nx, x1 = x0 + w/nx, z0 = -d/2 + d*j/nz, z1 = z0 + d/nz;
     pos.push(x0,0,z0, x0,0,z1, x1,0,z1,  x0,0,z0, x1,0,z1, x1,0,z0);
@@ -1880,7 +1880,7 @@ function placePicnic(rt, pop){
          mesh(solid(new THREE.TorusGeometry(.08, .012, 3, 6, Math.PI).translate(0, .13, 0), '#9a7040', 982)));
   g.add(bk);
   // a plate with one hotdog
-  const pl = new THREE.Group(); pl.position.set(.15, 0, -.2);
+  const pl = new THREE.Group(); pl.position.set(-.16, 0, -.3); pl.rotation.y = 40*Math.PI/180;  // tucked beside the basket, out of the birds' way
   pl.add(mesh(solid(new THREE.CylinderGeometry(.12, .1, .015, 8).translate(0, .016, 0), '#ffffff', 983)),
          mesh(solid(new THREE.CylinderGeometry(.03, .03, .16, 6).rotateZ(Math.PI/2).scale(1, .8, 1).translate(0, .048, 0), '#e3b071', 984)),
          mesh(solid(new THREE.CylinderGeometry(.017, .017, .19, 6).rotateZ(Math.PI/2).translate(0, .068, 0), '#c8553d', 985)),
@@ -1888,12 +1888,12 @@ function placePicnic(rt, pop){
   g.add(pl);
   rt.group.add(g); g.updateMatrix();
   const world = (lx, lz) => new THREE.Vector3(lx, 0, lz).applyMatrix4(g.matrix);
-  const bw = world(-.4, -.25), pw = world(.15, -.2);
+  const bw = world(-.4, -.25), pw = world(-.16, -.3);
   addObstacle(rt, bw.x, bw.z, .14, true); addObstacle(rt, pw.x, pw.z, .12, true);
   // three seats side by side along the front, and a spot to peck the hotdog from
   const seats = [-.36, 0, .36].map(lx => { const v = world(lx, .22); v.y = .01;
     return {kind:'picnic', pos:v, yaw:.3 + (Math.random() - .5)*.2, occupant:null}; });
-  const hd = world(.15, .02); hd.y = .01;
+  const hd = world(-.12, -.06); hd.y = .01;
   const hotdog = {kind:'hotdog', pos:hd, yaw:Math.atan2(pw.x - hd.x, pw.z - hd.z), occupant:null};
   rt.hiddenObj = {g, picnic:true}; rt.elements.hidden = g;
   rt.picnic = {seats, hotdog};
