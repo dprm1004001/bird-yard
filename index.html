@@ -261,6 +261,15 @@ const SPECIES = {
               eye:'#f2c21b', pupil:true, headScale:.9, scale:[.85,1.05,.9], rarity:.4,
               hint:'강가가 조용할 때 얕은 물가를 성큼성큼 걸어와요.',
               colors:{head:'#25272e',face:'#f3f4f6',neck:'#e4e7ec',breast:'#eef0f3',body:'#c9cfd8',wing:'#9aa3b1',wingTip:'#3a3f4a',beak:'#e9b26a',legs:'#b89a7a'}},
+  // little egret: all white, black dagger bill, black legs with yellow feet, a white plume
+  egret:     {tpl:'large', name:'쇠백로', voice:'과악', head:'point', beak:'dagger', beakLen:.48, feet:'toes', feetColor:'#f2c21b', legLen:.8, neckLen:.5, lean:.25, tailUp:-.3,
+              backTint:.1, plume:true, eye:'#f2c21b', pupil:true, headScale:.85, scale:[.72,.95,.78], rarity:.6,
+              hint:'얕은 물가에서 노란 발로 물을 휘저으며 먹이를 찾아요.',
+              colors:{head:'#fbfbf8',face:'#fbfbf8',neck:'#f7f7f4',breast:'#fbfbf8',body:'#f5f5f2',wing:'#efefeb',wingTip:'#e2e2de',beak:'#1a1a1e',legs:'#1c1c20'}},
+  // spoon-billed sandpiper: small grey-brown streaky shorebird with the spatula bill
+  spoonbill: {tpl:'small', name:'넓적부리도요', voice:'삐릿', beak:'spoon', beakLen:.16, lean:.22, tailUp:-.1, backTint:.9, eye:'#121214', stripes:true, stripeLight:'#d8cbbb', rarity:.35,
+              hint:'강가 모래톱에 아주 가끔 들르는 귀한 손님이에요.',
+              colors:{head:'#8a6a52',face:'#f6f3ee',neck:'#d9cfc4',breast:'#f4f1ec',body:'#f7f5f1',wing:'#8a7562',wingTip:'#3e342c',beak:'#1a1a1e',legs:'#1e1e22'}},
   falcon:    {tpl:'large', name:'송골매', voice:'끼야', head:'round', beak:'hook', beakLen:.14, feet:'toes', legLen:.3, lean:.12, tailUp:-.25, tailLen:1.5, backTint:.7, bars:true,
               eye:'#f2c21b', pupil:true, rarity:.35,
               hint:'광장 높은 곳에서 비둘기를 노리다 내려와요.',
@@ -320,7 +329,7 @@ const PLACES = {
           hint:'빵 바구니를 톡톡 쳐서 빵가루를 던져 보세요'},
   plaza: {name:'광장 벤치', cost:60, food:'snack', species:['pigeon','crow','sparrow','tit','bulbul','falcon'], desc:'과자 봉지가 놓인 낡은 벤치.',
           hint:'벤치 위 과자 봉지를 톡톡 쳐 보세요'},
-  river: {name:'맑은 강가', cost:100, food:'seed', species:['kingfisher','wagtail','plover','heron'], desc:'넓은 강물이 가로질러 흐르는 강가.',
+  river: {name:'맑은 강가', cost:100, food:'seed', species:['kingfisher','wagtail','plover','heron','egret','spoonbill'], desc:'넓은 강물이 가로질러 흐르는 강가.',
           hint:'곡식 자루를 톡톡 쳐서 낟알을 흩뿌려 보세요'},
   forest:{name:'어두운 숲', cost:160, food:'cone', species:['jay','woodpecker','uralowl','barnowl','owl'], desc:'소나무가 빽빽한 어둑한 숲속.',
           hint:'가운데 작은 소나무를 흔들어 솔방울을 떨어뜨려 보세요'},
@@ -443,6 +452,37 @@ function mesh(geo){ const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.r
 // ======================================================================
 //  Bird templates (built once each)
 // ======================================================================
+// spoon bill (넓적부리도요): a flat shaft that pinches in, then flares into a spatula whose end is
+// split into three facets (left lobe, middle, right lobe) meeting at a raised centre point.
+// Unit length along +z like the other beaks; r is the cone beak's base radius.
+function spoonBeak(r){
+  const a = r*.85, h = r*.5;
+  // outline seen from above, clockwise from the left base corner: [x, z]
+  const O = [[-a,0],[-.42*a,.55],[-1.9*a,.8],[-1.05*a,1],[1.05*a,1],[1.9*a,.8],[.42*a,.55],[a,0]];
+  const top = O.map(([x, z]) => [x, h/2, z]), bot = O.map(([x, z]) => [x, -h/2, z]);
+  const C = [0, h*.95, .8];          // raised centre of the spatula: makes the tip read as three facets
+  const tris = [];
+  const t = (p, q, s) => tris.push(p, q, s);
+  // top: shaft quad, then the spatula fanned round the centre point
+  t(top[0], top[1], top[6]); t(top[0], top[6], top[7]);
+  t(top[1], top[2], C); t(top[2], top[3], C); t(top[3], top[4], C); t(top[4], top[5], C); t(top[5], top[6], C); t(top[6], top[1], C);
+  // bottom: one flat fan
+  const bc = [0, -h/2, .6];
+  for (let i = 0; i < O.length; i++) t(bot[i], bot[(i + 1) % O.length], bc);
+  // sides
+  for (let i = 0; i < O.length; i++){ const j = (i + 1) % O.length; t(top[i], bot[i], bot[j]); t(top[i], bot[j], top[j]); }
+  // wind every triangle outward (away from the bill's middle) so none get culled
+  const pos = [], m = new THREE.Vector3(0, 0, .55), A = new THREE.Vector3(), B = new THREE.Vector3(), D = new THREE.Vector3(), n = new THREE.Vector3();
+  for (let i = 0; i < tris.length; i += 3){
+    A.fromArray(tris[i]); B.fromArray(tris[i + 1]); D.fromArray(tris[i + 2]);
+    n.subVectors(B, A).cross(D.clone().sub(A));
+    const c = A.clone().add(B).add(D).multiplyScalar(1/3).sub(m);
+    if (n.dot(c) < 0) pos.push(...tris[i], ...tris[i + 2], ...tris[i + 1]);
+    else pos.push(...tris[i], ...tris[i + 1], ...tris[i + 2]);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+  return g;
+}
 function makeTemplate({segs, H, R, hr, legLen, round}){
   const nr = hr*.92, J = .03, L = H*.72, wr = R*.95, tl = R*.75;
   const P = {};
@@ -456,7 +496,8 @@ function makeTemplate({segs, H, R, hr, legLen, round}){
   const beak = (sx, sy) => shape(new THREE.ConeGeometry(hr*.28, 1, 4).rotateX(Math.PI/2).translate(0, 0, .5).scale(sx, sy, 1));
   P.beak = {cone:beak(1,1), wedge:beak(.7,1.45), flat:beak(1.7,.45), needle:beak(.42,.5), dagger:beak(.6,.85),
     // raptor hook: short and bent down at the tip
-    hook:shape(new THREE.ConeGeometry(hr*.28, 1, 4).rotateX(Math.PI/2).translate(0, 0, .5).rotateX(.65).scale(.9, 1.2, 1))};
+    hook:shape(new THREE.ConeGeometry(hr*.28, 1, 4).rotateX(Math.PI/2).translate(0, 0, .5).rotateX(.65).scale(.9, 1.2, 1)),
+    spoon:spoonBeak(hr*.28)};
   // optional extras for the large template
   P.neckTube = shape(lathe([[nr*.78,0],[nr*.66,.5],[nr*.72,1]], segs));
   P.ear   = shape(new THREE.ConeGeometry(hr*.2, hr*.62, 3).translate(0, hr*.31, 0));
@@ -482,7 +523,7 @@ function skinsFor(id){
   if (skinCache[id]) return skinCache[id];
   const sp = SPECIES[id], t = TPL[sp.tpl], C = {};
   for (const k in sp.colors) C[k] = col(sp.colors[k]);
-  const white = sp.stripeLight ? col(sp.stripeLight) : col('#f4f4f6'), footC = C.legs.clone().multiplyScalar(.88);
+  const white = sp.stripeLight ? col(sp.stripeLight) : col('#f4f4f6'), footC = sp.feetColor ? col(sp.feetColor) : C.legs.clone().multiplyScalar(.88);
   const beakDark = sp.beakTip ? col(sp.beakTip) : C.beak.clone().multiplyScalar(.72);
   const {H, R, hr, L, tl, P, round} = t, hd = t.heads[sp.head || 'round'], hh = hd.hh;
   const rings = round ? 5 : 7, cap = sp.capStart ?? .05;
