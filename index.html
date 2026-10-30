@@ -3830,10 +3830,10 @@ addEventListener('resize', resize);
 const clock = new THREE.Clock();
 // ---------- ambient sound per place: a looping bed that fades in while you're there and out when you leave ----------
 // Browsers only allow sound after the player's first tap, so nothing plays until then.
-// beds sit at .15; the plaza's recording is quiet, so it gets .3
-const AMBIENT = {yard:{src:'sounds/yard-spring-noon.mp3', vol:.15}, pond:{src:'sounds/pond-spring.mp3', vol:.15}, plaza:{src:'sounds/plaza-town-square.mp3', vol:.3}, forest:{src:'sounds/forest-night-crickets.mp3', vol:.15}, island:{src:'sounds/sea-seagull.mp3', vol:.15},
+// beds sit at .15; the plaza's recording is quiet, so it gets .3; the sea (.1) and above all the river's stream (.04) are loud recordings
+const AMBIENT = {yard:{src:'sounds/yard-spring-noon.mp3', vol:.15}, pond:{src:'sounds/pond-spring.mp3', vol:.15}, plaza:{src:'sounds/plaza-town-square.mp3', vol:.3}, forest:{src:'sounds/forest-night-crickets.mp3', vol:.15}, island:{src:'sounds/sea-seagull.mp3', vol:.1},
   // a place can have several beds playing together: the river's stream and its birdsong
-  river:[{src:'sounds/river-forest-stream.mp3', vol:.15}, {src:'sounds/river-bird-chirp.mp3', vol:.15}]};
+  river:[{src:'sounds/river-forest-stream.mp3', vol:.04}, {src:'sounds/river-bird-chirp.mp3', vol:.15}]};
 const BEDS = Object.entries(AMBIENT).flatMap(([pid, v]) => [].concat(v).map((b, i) => ({...b, pid, key:i ? pid + i : pid})));
 // the speaker button under the camera turns every sound off and on; the choice is remembered on this device
 const MUTE_KEY = 'berry-yard-muted';
