@@ -321,6 +321,24 @@ const SPECIES = {
               backTint:.8, capStart:.5, eye:'#2f8a5e', pupil:true, headScale:1.2, scale:[.85,1.05,.85], rarity:.4,
               hint:'바다가 조용할 때 젖은 날개를 말리러 섬에 올라와요.',
               colors:{head:'#1d1f24',face:'#f0eee6',neck:'#1d1f24',breast:'#22252b',body:'#2a2d33',wing:'#4a4636',wingTip:'#15161a',beak:'#e2b43a',legs:'#1a1a1e'}},
+  // flamingo: the tallest bird. Long pink legs and neck, a thick bent bill with a black tip, black flight feathers.
+  // Idles on one leg (oneLeg).
+  flamingo:  {tpl:'large', name:'홍학', voice:'꾸악', head:'round', beak:'hook', beakLen:.34, beakTip:'#1a1a1e', feet:'web', legLen:1.08, neckLen:.72, lean:.22, tailUp:-.3,
+              backTint:.5, eye:'#f2c21b', pupil:true, headScale:.8, scale:[.82,.95,.9], rarity:.45, oneLeg:true,
+              hint:'바닷가가 따뜻할 때 한 발로 서서 쉬러 와요.',
+              colors:{head:'#f6a7b8',face:'#f9c0cc',neck:'#f4a0b2',breast:'#f49aae',body:'#f7b2c1',wing:'#ee7f98',wingTip:'#1c1c20',beak:'#f6d2d6',legs:'#ef8aa0'}},
+  // pelican: big white body, short legs, a long bill with a yellow-orange pouch
+  pelican:   {tpl:'large', name:'펠리컨', voice:'훕', head:'round', beak:'pouch', beakLen:.6, pouchColor:'#ec9f42', feet:'web', legLen:.26, neckLen:.32, lean:.08, tailUp:-.35,
+              backTint:.3, capStart:.6, eye:'#e8c84a', pupil:true, headScale:.95, scale:[1.25,1,1.3], rarity:.5,
+              hint:'커다란 부리 주머니를 흔들며 섬에 내려앉아요.',
+              colors:{head:'#f2e7c6',face:'#f7f5ef',neck:'#f6f3ec',breast:'#f7f5ef',body:'#f3f1ea',wing:'#e9e6de',wingTip:'#1c1c20',beak:'#f2c46a',legs:'#c9b8a8'}},
+  // grey nightjar (쏙독새): flat, long-winged, mottled bark-grey, a tiny wide bill and big dark eyes.
+  // Lies almost level, on very short legs.
+  nightjar:  {tpl:'large', name:'쏙독새', voice:'쏙독', head:'round', beak:'flat', beakLen:.06, feet:'toes', legLen:.1, lean:1.05, tailUp:-.05, tailLen:1.9,
+              backTint:.9, capStart:.3, eye:'#1a1410', eyeScale:1.5, eyeAngle:.75, headScale:1.15, bars:true, stripes:true, stripeLight:'#b8ab94',
+              scale:[1.05,.62,1.15], rarity:.4,
+              hint:'어두운 숲 통나무와 똑같은 색이라 내려앉아도 잘 안 보여요.',
+              colors:{head:'#7a6d5c',face:'#d9cfbf',neck:'#6e6252',breast:'#8a7c68',body:'#968872',wing:'#6a5e4e',wingTip:'#3e362c',beak:'#3a322a',legs:'#6e6252'}},
 };
 const PLACES = {
   yard:  {name:'베리 마당', cost:0,  food:'berry', species:['robin','magpie','wren','bullfinch'], desc:'작은 베리나무 한 그루에서 시작해요.',
@@ -331,11 +349,11 @@ const PLACES = {
           hint:'벤치 위 과자 봉지를 톡톡 쳐 보세요'},
   river: {name:'맑은 강가', cost:100, food:'seed', species:['kingfisher','wagtail','plover','heron','egret','spoonbill'], desc:'넓은 강물이 가로질러 흐르는 강가.',
           hint:'곡식 자루를 톡톡 쳐서 낟알을 흩뿌려 보세요'},
-  forest:{name:'어두운 숲', cost:160, food:'cone', species:['jay','woodpecker','uralowl','barnowl','owl'], desc:'소나무가 빽빽한 어둑한 숲속.',
+  forest:{name:'어두운 숲', cost:160, food:'cone', species:['jay','woodpecker','uralowl','barnowl','owl','nightjar'], desc:'소나무가 빽빽한 어둑한 숲속.',
           hint:'가운데 작은 소나무를 흔들어 솔방울을 떨어뜨려 보세요'},
   // coconuts land whole; hint2 is the second onboarding step, shown after the first drop until a coconut is cracked
   // the last and dearest place, after the dark forest
-  island:{name:'바닷가 외딴섬', cost:250, food:'coconut', feederFood:'half', species:['seagull','tailgull','murrelet','cormorant'], desc:'사방이 바다인 작은 모래섬. 야자나무 한 그루가 서 있어요.',
+  island:{name:'바닷가 외딴섬', cost:250, food:'coconut', feederFood:'half', species:['seagull','tailgull','murrelet','cormorant','flamingo','pelican'], desc:'사방이 바다인 작은 모래섬. 야자나무 한 그루가 서 있어요.',
           hint:'야자나무를 톡 쳐서 코코넛을 떨어뜨려 보세요',
           hint2:'떨어진 코코넛을 톡 쳐서 반으로 쪼개 주세요'},
 };
@@ -375,7 +393,9 @@ const ALL_SPECIES = PLACE_ORDER.flatMap(p => PLACES[p].species);
 const SMALL4 = ['robin','tit','wren','bullfinch'];  // the "작은 새 도감" achievement set
 const BIRD_SCALE = .3;
 // raptors and owls get an extra shrink on top of the global scale
-const SIZE = {falcon:.72, owl:.66, uralowl:.72, barnowl:.72};
+const SIZE = {falcon:.72, owl:.66, uralowl:.72, barnowl:.72,
+  // the island draws birds at .85, so these two get a boost to stay the biggest birds in the game
+  flamingo:1.2, pelican:1.1};
 const BK = BIRD_SCALE/.5;  // distances below were tuned at scale .5; BK keeps them in step with the bird size
 
 // ---------- save data (this browser only) ----------
@@ -497,7 +517,12 @@ function makeTemplate({segs, H, R, hr, legLen, round}){
   P.beak = {cone:beak(1,1), wedge:beak(.7,1.45), flat:beak(1.7,.45), needle:beak(.42,.5), dagger:beak(.6,.85),
     // raptor hook: short and bent down at the tip
     hook:shape(new THREE.ConeGeometry(hr*.28, 1, 4).rotateX(Math.PI/2).translate(0, 0, .5).rotateX(.65).scale(.9, 1.2, 1)),
-    spoon:spoonBeak(hr*.28)};
+    spoon:spoonBeak(hr*.28),
+    // pelican: a long flat upper bill with a deep throat pouch slung underneath
+    pouch:merge([
+      new THREE.ConeGeometry(hr*.28, 1, 4).rotateX(Math.PI/2).translate(0, 0, .5).scale(1.5, .35, 1),
+      new THREE.ConeGeometry(hr*.3, .9, 4).rotateX(Math.PI/2).translate(0, 0, .45).scale(1.1, 1.6, 1).translate(0, -hr*.22, 0),
+    ])};
   // optional extras for the large template
   P.neckTube = shape(lathe([[nr*.78,0],[nr*.66,.5],[nr*.72,1]], segs));
   P.ear   = shape(new THREE.ConeGeometry(hr*.2, hr*.62, 3).translate(0, hr*.31, 0));
@@ -542,7 +567,10 @@ function skinsFor(id){
       c.copy(C.neck).lerp(C.head, ss(cap, cap + .33, u));
       c.lerp(C.face, ss(.74, .5, u) * ss(-hr*.4, hr*.2, z));
     }, 2),
-    beak:  skin(P.beak[sp.beak || 'cone'], (c,x,y,z) => c.copy(C.beak).lerp(beakDark, ss(.3, 1, z)), 3),
+    beak:  skin(P.beak[sp.beak || 'cone'], (c,x,y,z) => {
+      c.copy(C.beak).lerp(beakDark, ss(.3, 1, z));
+      if (sp.pouchColor && y < -hr*.04) c.set(sp.pouchColor);  // pelican throat pouch
+    }, 3),
     neckTube: sp.neckLen ? skin(P.neckTube, (c,x,y,z) => c.copy(C.neck).lerp(C.face, ss(0, hr*.5, z)*.6), 7) : null,
     ear:   sp.ears ? skin(P.ear, c => c.copy(C.head), 8) : null,
     plume: sp.plume ? skin(P.plume, c => c.copy(C.head), 8) : null,
@@ -2512,6 +2540,8 @@ function updateBird(B, dt){
     const d = Math.hypot(r.position.x, r.position.z), lim = rt.bound && rt.bound + .2;
     if (lim && d > lim){ r.position.x *= lim/d; r.position.z *= lim/d; }
   }
+  // flamingos idle on one leg: the other is tucked up out of sight while standing about
+  if (B.b.sp.oneLeg && !B.restSpot) B.b.legs[0].visible = !(B.state === 'look' && !B.hop && !B.wander);
   B.wiggle = Math.max(0, (B.wiggle || 0) - dt);
   B.headYaw += (B.headGoal - B.headYaw)*Math.min(1, dt*8);
   if (B.state !== 'look' && B.state !== 'rest') B.headGoal = 0;
