@@ -69,6 +69,9 @@ body{background:var(--void);color:var(--ink);font-family:var(--body);overflow:hi
 .nav:active{transform:translateY(1px);box-shadow:none}
 .nav:focus-visible{outline:2px solid var(--berry);outline-offset:2px}
 .cam{display:grid;place-items:center;padding:0}
+#soundBtn .snd-off,#soundBtn[aria-pressed="true"] .snd-on{display:none}
+#soundBtn[aria-pressed="true"] .snd-off{display:inline}
+#soundBtn[aria-pressed="true"]{color:var(--muted)}
 /* photo mode */
 body.photo .hud,body.photo .hint,body.photo .toasts{display:none!important}
 .photo-ui{position:fixed;inset:0;z-index:6;pointer-events:none}
@@ -226,6 +229,12 @@ body[data-place="island"] .stats{color:#e3f3f6}
   <button class="nav cam" id="photoBtn" aria-label="포토 모드" title="포토 모드">
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true">
       <path d="M4 8h3l1.6-2.4h6.8L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.6"/></svg>
+  </button>
+  <button class="nav cam" id="soundBtn" aria-label="소리 끄기" aria-pressed="false" title="소리 끄기">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+      <path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/>
+      <g class="snd-on"><path d="M15 9.5a3.5 3.5 0 0 1 0 5"/><path d="M17.5 7.5a6.5 6.5 0 0 1 0 9"/></g>
+      <g class="snd-off"><path d="M15.5 9.5l5 5M20.5 9.5l-5 5"/></g></svg>
   </button>
 </div>
 <!-- photo mode: everything else hides; a shutter, a close button and a short how-to -->
@@ -2076,7 +2085,7 @@ function tapPumpkin(x, y){
   const H = P.hiddenObj; if (!H?.pumpkin) return false;
   ndc.set(x/innerWidth*2 - 1, -(y/innerHeight)*2 + 1); ray.setFromCamera(ndc, camera);
   if (!ray.intersectObject(H.pg, true).length) return false;
-  const a = woodTap.cloneNode(); a.volume = .8; a.play().catch(() => {});  // a fresh copy so quick taps overlap
+  if (!muted){ const a = woodTap.cloneNode(); a.volume = .8; a.play().catch(() => {}); }  // a fresh copy so quick taps overlap
   H.bounce = 1;
   const now = performance.now()/1000;
   H.taps = H.taps.filter(t => now - t < 3); H.taps.push(now);
@@ -2113,7 +2122,7 @@ function updateShow(rt, dt){
     H.stem.position.y = -.16*k; H.stem.visible = k < .95;
     H.siren.position.y = h - .25 + .2*ss(.3, SHOW.prep, sh.t);
   } else {
-    if (!sh.music){ sh.music = true; showMusic.currentTime = 0; showMusic.play().catch(() => {}); }
+    if (!sh.music){ sh.music = true; showMusic.currentTime = 0; showMusic.muted = muted; showMusic.play().catch(() => {}); }  // muted, it still plays silently to keep the beat clock
     const m = showClock(sh);
     if (m < SHOW.club){
       // siren wails: spinning ever faster, the glow pulsing red
@@ -3569,6 +3578,7 @@ $('prevPlace').onclick = () => stepPlace(-1);
 $('nextPlace').onclick = () => stepPlace(1);
 $('cleanBtn').onclick = cleanUp;
 $('photoBtn').onclick = enterPhoto;
+$('soundBtn').onclick = () => setMuted(!muted);
 $('photoClose').onclick = exitPhoto;
 $('shutter').onclick = takePhoto;
 addEventListener('keydown', e => { if (photo && e.key === 'Escape') exitPhoto(); });
@@ -3820,7 +3830,17 @@ addEventListener('resize', resize);
 const clock = new THREE.Clock();
 // ---------- ambient sound per place: a looping bed that fades in while you're there and out when you leave ----------
 // Browsers only allow sound after the player's first tap, so nothing plays until then.
-const AMBIENT = {island:{src:'sounds/sea-waves.mp3', vol:.35}};
+const AMBIENT = {island:{src:'sounds/sea-waves.mp3', vol:.22}};
+// the speaker button under the camera turns every sound off and on; the choice is remembered on this device
+const MUTE_KEY = 'berry-yard-muted';
+let muted = false;
+try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch {}
+function setMuted(m){
+  muted = m; showMusic.muted = m;
+  try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch {}
+  const b = $('soundBtn'); b.setAttribute('aria-pressed', m); b.setAttribute('aria-label', m ? '소리 켜기' : '소리 끄기'); b.title = b.getAttribute('aria-label');
+}
+setMuted(muted);
 const ambient = {};
 let soundOK = false;
 addEventListener('pointerdown', () => {
@@ -3834,7 +3854,7 @@ addEventListener('pointerdown', () => {
 }, {capture:true});
 function updateAmbient(dt){
   for (const pid in AMBIENT){
-    const want = soundOK && pid === cur && !document.hidden && !document.getElementById('title') ? AMBIENT[pid].vol : 0;
+    const want = soundOK && !muted && pid === cur && !document.hidden && !document.getElementById('title') ? AMBIENT[pid].vol : 0;
     let a = ambient[pid];
     if (!a){ if (!want) continue; a = ambient[pid] = new Audio(AMBIENT[pid].src); a.loop = true; a.volume = 0; }
     a.volume = Math.max(0, Math.min(1, a.volume + Math.sign(want - a.volume)*Math.min(Math.abs(want - a.volume), dt*.4)));

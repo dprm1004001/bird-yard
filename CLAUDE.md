@@ -48,6 +48,7 @@ The user alternates between two machines.
   - `placeCamera` positions the camera in both modes.
   - The shutter (`takePhoto`) flashes, draws the scene over its background (the forest's dusk gradient is redrawn from `DUSK_STOPS`), saves `bird-yard-YYYYMMDD-HHMMSS.png`, and shows a thumbnail. In the claude.ai artifact it saves through the `downloads` capability (`window.claude.use("downloads")`, so the artifact is published with `capabilities: {downloads: true}`); elsewhere it uses a plain download link.
   - × or Escape leaves.
+- Sound toggle: the speaker button under the camera (`soundBtn`, `setMuted`) turns every sound off and on: the pumpkin knock, the ambient beds, and the siren-show music. While muted, the show music still plays silently to keep the beat clock. The choice is kept per device in localStorage `berry-yard-muted`.
 
 ## Places and per-place decor
 
@@ -73,7 +74,7 @@ The island (`buildIsland`):
 - Its hidden object is the beach hut set (see Hidden objects).
 - Flamingo (`flamingo`) is the biggest bird: `SIZE` 1.2 makes up for the island's .85 scale. Its bill has a hard black tip (`tipFrom`). It idles on one leg (`oneLeg`), and after eating it usually wades to `rt.wadeSpots`, three spots in the surf off the beach. It stands there with one leg folded up (rest kind `wade`).
 - Pelican (`pelican`) uses the `pouch` beak part with a `pouchColor` throat pouch.
-- Ambient sound: while you're on the island, `sounds/sea-waves.mp3` (the user's file, 79 s) loops at volume .35 (`AMBIENT`, `updateAmbient`). It fades in and out over about a second when you arrive or leave. Nothing plays before the first tap (`soundOK`); that first tap also unlocks the audio for iPhones. Other places can get a bed by adding an `AMBIENT` entry.
+- Ambient sound: while you're on the island, `sounds/sea-waves.mp3` (the user's file, 79 s) loops at volume .22 (`AMBIENT`, `updateAmbient`; the user asked for it a little quieter than .35). It fades in and out over about a second when you arrive or leave. Nothing plays before the first tap (`soundOK`); that first tap also unlocks the audio for iPhones. Other places can get a bed by adding an `AMBIENT` entry.
 
 Each place grows decor in stages as shop items are placed there. The stage is the count of items in `S.items[pid]`, from 0 to 5.
 - yard: green ground (the same fresh grass greens as the river, `#78c266`/`#69b65c`/`#8bcf76`, at the user's request), grass, flowers blooming one by one, butterflies from stage 3.
