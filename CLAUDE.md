@@ -14,7 +14,7 @@ The user alternates between two machines.
 
 ## Files and deploy
 
-- `index.html` is the whole game. It is one file: Three.js r128 from cdnjs plus inline CSS and JS. There is no build step.
+- `index.html` is the whole game, plus sound files in `sounds/`. It is one file: Three.js r128 from cdnjs plus inline CSS and JS. There is no build step.
 - Deploy: GitHub Pages from `main` / root, at https://dprm1004001.github.io/bird-yard/. Every push redeploys it.
 - To test locally, run `python3 -m http.server 8000` and open http://localhost:8000.
 - `berry-yard.html` and `low-poly-birds.html` are gitignored old working copies. Don't edit them.
@@ -130,6 +130,7 @@ Hidden objects (`HIDDEN`):
   - A warm orange `PointLight` in front spills light onto the floor.
   - The model is built at its own size (`r`, `h`) inside an inner group scaled by `PUMPKIN.s` (2.15); the user asked for it this big.
   - Bird behaviour around it is still to be directed.
+  - Tapping it (a plain tap, `tapPumpkin`) plays `sounds/wood-tap.wav` (the user's file) and squashes the pumpkin in a little wobble. Each tap clones the `Audio` so quick taps overlap.
   - Buying it brings the bat (`bat`, 박쥐), which isn't a bird. It's a small-template species with `ears` and `batWing` (a scalloped membrane part, `P.batWing`).
     - `needsHidden:'forest'` keeps it out of `poolFor` until the pumpkin is placed.
     - `secret:true` makes its encyclopedia card "???" / "비밀 도감이에요." with no portrait until it's met. It's also left out of place lists and the place-open toast.

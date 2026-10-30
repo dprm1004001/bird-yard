@@ -2015,9 +2015,19 @@ function placePumpkin(rt, pop){
   // warm light spilling out onto the forest floor
   const lamp = new THREE.PointLight(0xffa040, 1.4, 2.6*S, 2); lamp.position.set(0, cy*S, (r + .2)*S); g.add(lamp);
   rt.group.add(g);
-  rt.hiddenObj = {g, pumpkin:true}; rt.elements.hidden = g;
+  rt.hiddenObj = {g, pg, pumpkin:true}; rt.elements.hidden = g;
   addObstacle(rt, x, z, r*S + .04, true);
   if (pop){ g.userData.target = 1; g.scale.setScalar(.001); g.userData.pop = 0; }
+}
+// tapping the pumpkin: a hollow wooden knock and a little squash-and-bounce
+const woodTap = new Audio('sounds/wood-tap.wav'); woodTap.preload = 'auto';
+function tapPumpkin(x, y){
+  const H = P.hiddenObj; if (!H?.pumpkin) return false;
+  ndc.set(x/innerWidth*2 - 1, -(y/innerHeight)*2 + 1); ray.setFromCamera(ndc, camera);
+  if (!ray.intersectObject(H.pg, true).length) return false;
+  const a = woodTap.cloneNode(); a.volume = .8; a.play().catch(() => {});  // a fresh copy so quick taps overlap
+  H.bounce = 1;
+  return true;
 }
 function placeHidden(pid, pop){
   const rt = RT[pid]; if (rt.hiddenObj) return;
@@ -2343,6 +2353,11 @@ function updateHidden(rt, dt){
   }
   rt.extras = rt.extras.filter(e => e.update(dt));
   if (rt.hiddenObj?.spring) updateSteam(rt, dt);
+  if (rt.hiddenObj?.pumpkin){
+    // a tapped pumpkin squashes down and wobbles back
+    const H = rt.hiddenObj, b = H.bounce = Math.max(0, (H.bounce || 0) - dt*2.5), w = Math.sin((1 - b)*Math.PI*3)*b*.08;
+    H.pg.scale.set(PUMPKIN.s*(1 + w), PUMPKIN.s*(1 - w), PUMPKIN.s*(1 + w));
+  }
   updatePuffs(rt, dt);
 }
 const STAGE_TOAST = {
@@ -3189,7 +3204,7 @@ const endDrag = () => {
     }
   }
   // a plain tap (not a drag) on open water splashes it
-  if (drag && drag.orbit && drag.moved < 6 && P.waterMeshes) tapWater(drag.x0, drag.y0);
+  if (drag && drag.orbit && drag.moved < 6 && !tapPumpkin(drag.x0, drag.y0) && P.waterMeshes) tapWater(drag.x0, drag.y0);
   drag = null;
 };
 canvas.addEventListener('pointerup', endDrag);
