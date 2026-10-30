@@ -141,10 +141,54 @@ body[data-place="island"] .stats{color:#e3f3f6}
 .qmark:focus-visible,.code:focus-visible{outline:2px solid var(--berry);outline-offset:2px}
 .code{font:inherit;font-size:16px;letter-spacing:.3em;width:120px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
 @media (prefers-reduced-motion: reduce){.sheet,.hint{transition:none}.toast,.feathers.bump{animation:none}}
+
+/* title screen: the logo fades up out of the white void, then the start button */
+.title{position:fixed;inset:0;z-index:50;background:var(--void);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));transition:opacity .6s ease}
+.title.leaving{opacity:0;pointer-events:none}
+.logo{font-family:var(--display);font-weight:400;font-size:clamp(44px,12vw,84px);letter-spacing:.02em;margin:0;color:var(--ink);
+  opacity:0;transform:translateY(10px);animation:logoIn 1.8s ease-out .2s forwards}
+.logo span{color:var(--berry)}
+@keyframes logoIn{to{opacity:1;transform:none}}
+.title-actions{display:grid;justify-items:center;gap:14px;opacity:0;animation:logoIn .8s ease-out 1.6s forwards}
+.start{font:inherit;font-family:var(--display);font-size:20px;padding:12px 40px;border-radius:999px;border:0;background:var(--ink);color:#fff;cursor:pointer;
+  box-shadow:0 3px 0 rgba(0,0,0,.18)}
+.start:active{transform:translateY(2px);box-shadow:none}
+.start:focus-visible,.restart:focus-visible,.warn button:focus-visible{outline:2px solid var(--berry);outline-offset:3px}
+.restart{font:inherit;font-size:13px;color:var(--muted);background:none;border:0;padding:2px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.warn-back{position:fixed;inset:0;z-index:60;background:rgba(43,42,39,.35);display:flex;align-items:center;justify-content:center;padding:16px}
+.warn-back[hidden]{display:none!important}
+.warn{background:#fff3f2;border:1.5px solid #f0a9a3;border-radius:16px;padding:22px 22px 18px;max-width:340px;width:100%;display:grid;gap:10px;
+  box-shadow:0 10px 30px rgba(120,30,30,.18);animation:pop .25s ease-out}
+.warn h2{margin:0;font-family:var(--display);font-weight:400;font-size:20px;color:#c23a3a}
+.warn p{margin:0;font-size:14px;color:#6b3a36;line-height:1.55}
+.warn .row2{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+.warn button{font:inherit;font-size:14px;padding:8px 16px;border-radius:999px;cursor:pointer;border:1px solid #e3c2bf;background:#fff;color:var(--ink)}
+.warn button.danger{background:#d64545;border-color:#d64545;color:#fff}
+@media (prefers-reduced-motion: reduce){.logo,.title-actions{animation:none;opacity:1;transform:none}.title{transition:none}}
 </style>
 </head>
 <body>
 <canvas id="world" aria-label="새들이 찾아오는 하얀 마당"></canvas>
+
+<!-- title screen; first visit shows 시작하기, later visits 이어하기 plus a quiet reset link -->
+<div class="title" id="title">
+  <h1 class="logo">Bird <span>Yard</span></h1>
+  <div class="title-actions">
+    <button class="start" id="startBtn">시작하기</button>
+    <button class="restart" id="restartLink" hidden>처음부터 다시하기</button>
+  </div>
+</div>
+<div class="warn-back" id="warnBack" hidden>
+  <div class="warn" role="alertdialog" aria-labelledby="warnTitle" aria-describedby="warnText">
+    <h2 id="warnTitle">정말 초기화하시겠습니까?</h2>
+    <p id="warnText">도감, 업적 등 모든 데이터가 사라지게 됩니다.</p>
+    <div class="row2">
+      <button id="warnCancel">취소</button>
+      <button class="danger" id="warnOk">초기화</button>
+    </div>
+  </div>
+</div>
 <div class="layer" id="layer"></div>
 
 <div class="hud tl">
@@ -2964,6 +3008,25 @@ for (const pid in HIDDEN) if (S.hidden[pid]) placeHidden(pid, false);
 P.group.visible = true; applyEnv(cur);
 resetButton(); makePortraits(); showHint(); updateHUD(); resize(); frame();
 for (const pid in HIDDEN) checkHiddenUnlock(pid);  // saves that already qualify get the announcement once
+
+// ---------- title screen ----------
+const VISITED_KEY = 'berry-yard-visited';
+let visited = false;
+try { visited = !!localStorage.getItem(VISITED_KEY) || !!localStorage.getItem(KEY); } catch {}
+if (visited){ $('startBtn').textContent = '이어하기'; $('restartLink').hidden = false; }
+function closeTitle(){
+  try { localStorage.setItem(VISITED_KEY, '1'); } catch {}
+  $('title').classList.add('leaving');
+  setTimeout(() => $('title').remove(), 650);
+}
+$('startBtn').onclick = closeTitle;
+const openWarn = () => { $('warnBack').hidden = false; $('warnCancel').focus(); };
+const closeWarn = () => { $('warnBack').hidden = true; };
+$('restartLink').onclick = openWarn;
+$('warnCancel').onclick = closeWarn;
+$('warnBack').addEventListener('click', e => { if (e.target === $('warnBack')) closeWarn(); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && !$('warnBack').hidden) closeWarn(); });
+$('warnOk').onclick = () => { closeWarn(); resetAll(); toast('처음부터 다시 시작해요', '하얀 마당에 베리나무 한 그루만 남았어요'); closeTitle(); };
 </script>
 </body>
 </html>

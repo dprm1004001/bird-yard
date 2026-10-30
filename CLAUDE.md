@@ -19,6 +19,9 @@ The user alternates between two machines.
 - To test locally, run `python3 -m http.server 8000` and open http://localhost:8000.
 - `berry-yard.html` and `low-poly-birds.html` are gitignored old working copies. Don't edit them.
 - Progress is saved in localStorage under the key `berry-yard-v1`, per browser.
+- Title screen (`#title`): "Bird Yard" fades in over the white void, then a button appears.
+  - The button reads 시작하기 on a first visit and 이어하기 once `berry-yard-visited` or a save exists.
+  - Returning players also get a grey underlined "처음부터 다시하기" link. It opens a reddish warning dialog, and confirming runs `resetAll()`.
 - Admin mode: 업적 sheet → 관리자 모드 → code `4575`. It gives 99999 feathers and opens every place and achievement. It does not fill the encyclopedia.
 
 ## Style rules the user has set
