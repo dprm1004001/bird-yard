@@ -131,6 +131,12 @@ Hidden objects (`HIDDEN`):
   - The model is built at its own size (`r`, `h`) inside an inner group scaled by `PUMPKIN.s` (2.15); the user asked for it this big.
   - Bird behaviour around it is still to be directed.
   - Tapping it (a plain tap, `tapPumpkin`) plays `sounds/wood-tap.wav` (the user's file) and squashes the pumpkin in a little wobble. Each tap clones the `Audio` so quick taps overlap.
+  - Siren show (`startShow`, `updateShow`, `endShow`, timings in `SHOW`): 10+ taps within 3 s set it off (then a 20 s cooldown).
+    - Prep, 1.6 s: the glow turns red, the stem and leaf (`H.stem`) sink into the pumpkin, and a twin-horn siren (`makeSiren`: mint box, red flared horns) rises onto the top. Every grounded bird freezes in place (`rt.show` check in `updateBird`).
+    - Then `sounds/yararara.mp3` plays (the user's file). 0–3.95 s is the siren: it spins faster and faster, with the glow pulsing red.
+    - 3.95–11.5 s is a 125 BPM club beat (`SHOW.beat` .48 s, measured from the file). The glow and the pumpkin's light change colour every beat (`CLUB_COLORS`).
+      - Everyone dances via `startDance`, with `danceSync` driving one body circle per beat from the music's clock (`showClock`). Birds that land mid-club join in.
+    - Then the siren sinks, the stem returns and the glow goes back to yellow. Leaving the place ends the show.
   - Buying it brings the bat (`bat`, 박쥐), which isn't a bird. It's a small-template species with `ears` and `batWing` (a scalloped membrane part, `P.batWing`).
     - `needsHidden:'forest'` keeps it out of `poolFor` until the pumpkin is placed.
     - `secret:true` makes its encyclopedia card "???" / "비밀 도감이에요." with no portrait until it's met. It's also left out of place lists and the place-open toast.

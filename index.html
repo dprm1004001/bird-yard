@@ -1993,8 +1993,11 @@ function placePumpkin(rt, pop){
     const a = Math.atan2(pz, px);
     c.set(Math.abs(Math.sin(a*RIBS/2)) > .5 ? '#d9661f' : '#ec8a2f').lerp(col('#b5521a'), ss(.6, 0, py));
   }, 1020)));
-  pg.add(mesh(solid(new THREE.CylinderGeometry(.035, .055, .14, 5).rotateZ(.25).translate(.015, h + .03, 0), '#5e6b2f', 1021)));
-  pg.add(mesh(solid(new THREE.ConeGeometry(.06, .12, 3).rotateZ(1.3).translate(.08, h - .005, .03).scale(1, .35, 1), '#4f7a33', 1022)));
+  // stem and leaf in their own group, so the siren show can sink them into the pumpkin
+  const stem = new THREE.Group(); pg.add(stem);
+  stem.add(mesh(solid(new THREE.CylinderGeometry(.035, .055, .14, 5).rotateZ(.25).translate(.015, h + .03, 0), '#5e6b2f', 1021)));
+  stem.add(mesh(solid(new THREE.ConeGeometry(.06, .12, 3).rotateZ(1.3).scale(1, .35, 1).translate(.08, h - .005, .03), '#4f7a33', 1022)));
+  const siren = makeSiren(); siren.scale.setScalar(1.4); siren.position.y = h - .25; siren.visible = false; pg.add(siren);
   // the carved face: flat glowing shapes laid onto the front of the body
   const face = new THREE.Group(), cy = ry*.85;
   const onSurface = (pts, dy) => {
@@ -2015,19 +2018,99 @@ function placePumpkin(rt, pop){
   // warm light spilling out onto the forest floor
   const lamp = new THREE.PointLight(0xffa040, 1.4, 2.6*S, 2); lamp.position.set(0, cy*S, (r + .2)*S); g.add(lamp);
   rt.group.add(g);
-  rt.hiddenObj = {g, pg, pumpkin:true}; rt.elements.hidden = g;
+  rt.hiddenObj = {g, pg, stem, siren, lamp, pumpkin:true, taps:[], cool:0}; rt.elements.hidden = g;
   addObstacle(rt, x, z, r*S + .04, true);
   if (pop){ g.userData.target = 1; g.scale.setScalar(.001); g.userData.pop = 0; }
 }
-// tapping the pumpkin: a hollow wooden knock and a little squash-and-bounce
+// a twin-horn alarm siren (pumpkin-model units): a mint cast box with a round lid and feet, red flared horns either side
+function makeSiren(){
+  const g = new THREE.Group(), mint = '#a8d3c4';
+  g.add(mesh(solid(new THREE.BoxGeometry(.13, .12, .12).translate(0, .075, 0), mint, 1030)),
+        mesh(solid(new THREE.BoxGeometry(.17, .015, .1).translate(0, .008, 0), mint, 1031)),
+        mesh(solid(new THREE.CylinderGeometry(.045, .045, .012, 8).translate(0, .14, 0), '#9cc8b8', 1032)),
+        mesh(solid(new THREE.CylinderGeometry(.012, .012, .02, 6).rotateX(Math.PI/2).translate(.03, .08, .065), '#8a9196', 1033)));
+  for (const s of [-1, 1]){
+    const horn = new THREE.Group(); horn.position.set(s*.065, .075, 0); horn.rotation.z = -s*Math.PI/2; g.add(horn);
+    horn.add(mesh(solid(new THREE.CylinderGeometry(.038, .038, .05, 8).translate(0, .025, 0), '#d8352c', 1034)),   // drum
+             mesh(solid(new THREE.CylinderGeometry(.075, .04, .07, 8, 1, true).translate(0, .085, 0), '#e0402f', 1035)),  // flared bell
+             mesh(solid(new THREE.ConeGeometry(.025, .05, 6).translate(0, .075, 0), '#222226', 1036)));  // black driver inside
+  }
+  // the bell is open-ended, so draw its inside too
+  g.traverse(o => { if (o.isMesh && o.geometry.parameters?.openEnded) o.material = sirenInside; });
+  return g;
+}
+const sirenInside = mat.clone(); sirenInside.side = THREE.DoubleSide;
+// tapping the pumpkin: a hollow wooden knock and a little squash-and-bounce.
+// Ten quick taps set off the siren show
 const woodTap = new Audio('sounds/wood-tap.wav'); woodTap.preload = 'auto';
+const showMusic = new Audio('sounds/yararara.mp3'); showMusic.preload = 'auto';
 function tapPumpkin(x, y){
   const H = P.hiddenObj; if (!H?.pumpkin) return false;
   ndc.set(x/innerWidth*2 - 1, -(y/innerHeight)*2 + 1); ray.setFromCamera(ndc, camera);
   if (!ray.intersectObject(H.pg, true).length) return false;
   const a = woodTap.cloneNode(); a.volume = .8; a.play().catch(() => {});  // a fresh copy so quick taps overlap
   H.bounce = 1;
+  const now = performance.now()/1000;
+  H.taps = H.taps.filter(t => now - t < 3); H.taps.push(now);
+  if (H.taps.length >= 10 && !P.show && H.cool <= 0){ H.taps = []; startShow(P); }
   return true;
+}
+// ---------- the pumpkin siren show, timed to yararara.mp3: siren 0–3.9 s, then a 125 BPM club beat to 11.5 s ----------
+const SHOW = {prep:1.6, club:3.95, beat:.48, end:11.5, out:1.5, cool:20};
+const CLUB_COLORS = ['#ff3b5c','#b04dff','#3b7bff','#2fe08a','#ffd23b','#ff8a2b'].map(col);
+const glowYellow = col('#ffd060'), glowRed = col('#ff2a1a'), lampWarm = col('#ffa040');
+function startShow(rt){
+  rt.show = {t:0, music:false, danced:false};
+  const H = rt.hiddenObj; H.siren.visible = true; H.siren.rotation.y = 0;
+}
+// the clock the show runs on: the music's own time once it plays, so the colours and dancing stay on the beat
+function showClock(sh){ return sh.music && !showMusic.paused ? showMusic.currentTime : sh.t - SHOW.prep; }
+function endShow(rt){
+  const H = rt.hiddenObj; if (!rt.show) return;
+  rt.show = null; danceSync = null; H.cool = SHOW.cool;
+  showMusic.pause(); showMusic.currentTime = 0;
+  H.siren.visible = false; H.stem.position.y = 0; H.stem.visible = true;
+  pumpkinGlow.color.copy(glowYellow); H.lamp.color.copy(lampWarm);
+}
+function updateShow(rt, dt){
+  const H = rt.hiddenObj, sh = rt.show, h = PUMPKIN.h;
+  H.cool = Math.max(0, H.cool - dt);
+  if (!sh) return;
+  sh.t += dt;
+  const glow = new THREE.Color();
+  if (sh.t < SHOW.prep){
+    // the glow turns red, the stem sinks into the pumpkin and the siren rises out of the top
+    const k = ss(0, SHOW.prep, sh.t);
+    glow.copy(glowYellow).lerp(glowRed, ss(0, .5, sh.t));
+    H.stem.position.y = -.16*k; H.stem.visible = k < .95;
+    H.siren.position.y = h - .25 + .2*ss(.3, SHOW.prep, sh.t);
+  } else {
+    if (!sh.music){ sh.music = true; showMusic.currentTime = 0; showMusic.play().catch(() => {}); }
+    const m = showClock(sh);
+    if (m < SHOW.club){
+      // siren wails: spinning ever faster, the glow pulsing red
+      H.siren.rotation.y += dt*(3 + m*2.2);
+      glow.copy(glowRed).multiplyScalar(.55 + .45*Math.abs(Math.sin(m*Math.PI*1.6)));
+    } else if (m < SHOW.end){
+      // club: a new colour on every beat, flashing bright on the kick; everyone dances, one body circle per beat
+      const b = (m - SHOW.club)/SHOW.beat, i = Math.floor(b);
+      H.siren.rotation.y += dt*11;
+      glow.copy(CLUB_COLORS[((i % CLUB_COLORS.length) + CLUB_COLORS.length) % CLUB_COLORS.length]).multiplyScalar(1 - .35*(b - i));
+      if (!sh.danced){
+        sh.danced = true; danceSync = () => (showClock(rt.show || sh) - SHOW.club)/SHOW.beat*Math.PI*2;
+        startDance(rt, SHOW.end - m);
+      }
+    } else {
+      // music over: the siren sinks back, the stem comes up and the glow goes back to warm yellow
+      if (!sh.outT){ sh.outT = sh.t; danceSync = null; }
+      const k = ss(0, SHOW.out, sh.t - sh.outT);
+      H.siren.position.y = h - .05 - .2*k; H.siren.rotation.y += dt*11*(1 - k);
+      H.stem.visible = true; H.stem.position.y = -.16*(1 - k);
+      glow.copy(CLUB_COLORS[0]).lerp(glowYellow, k);
+      if (k >= 1){ endShow(rt); return; }
+    }
+  }
+  pumpkinGlow.color.copy(glow); H.lamp.color.copy(glow);
 }
 function placeHidden(pid, pop){
   const rt = RT[pid]; if (rt.hiddenObj) return;
@@ -2354,6 +2437,7 @@ function updateHidden(rt, dt){
   rt.extras = rt.extras.filter(e => e.update(dt));
   if (rt.hiddenObj?.spring) updateSteam(rt, dt);
   if (rt.hiddenObj?.pumpkin){
+    updateShow(rt, dt);
     // a tapped pumpkin squashes down and wobbles back
     const H = rt.hiddenObj, b = H.bounce = Math.max(0, (H.bounce || 0) - dt*2.5), w = Math.sin((1 - b)*Math.PI*3)*b*.08;
     H.pg.scale.set(PUMPKIN.s*(1 + w), PUMPKIN.s*(1 - w), PUMPKIN.s*(1 + w));
@@ -2676,6 +2760,7 @@ function applyPose(B){
 // (legs and all) is swung round in a big circle out to its sides: left, up, right, down, in time with every other dancer.
 // The body moves; the head doesn't move or turn at all ----------
 const DANCE_BEAT = 1.875;  // body circles per second
+let danceSync = null;      // during the pumpkin show: the dance phase comes from the music, one circle per beat
 const DANCE_RADIUS = .5;   // how far the body swings out to each side, as a share of the template's body radius (up/down is 3/4 of it)
 const DANCE_FWD = .16;  // how far forward of its usual place the pinned head sits, as a share of body height
 const danceHead = new THREE.Vector3();
@@ -2683,7 +2768,7 @@ function dancePose(B){
   const b = B.b, sp = b.sp, t = TPL[sp.tpl], hp = b.hips.position, ud = b.hips.userData;
   if (!ud.danced){ ud.danced = true; ud.y0 = hp.y; ud.neck0 = b.neck.position.clone(); }
   // ease in and out over the first and last 0.4 s
-  const e = Math.min(1, B.dance/.4, (B.danceLen - B.dance)/.4), ph = T0*DANCE_BEAT*Math.PI*2;
+  const e = Math.min(1, B.dance/.4, (B.danceLen - B.dance)/.4), ph = danceSync ? danceSync() : T0*DANCE_BEAT*Math.PI*2;
   b.head.rotation.y = 0;  // facing straight ahead, at its usual angle
   // where the head sits with the body at rest, pushed a little forward (same height, same angle): that's where it stays
   hp.set(0, ud.y0, 0); b.neck.position.copy(ud.neck0);
@@ -2910,6 +2995,13 @@ function updateBird(B, dt){
   const r = B.b.root, rt = B.rt;
   // dancing birds stand still and do nothing else until the dance ends
   if (B.dance > 0){ B.dance -= dt; applyPose(B); return; }
+  // the pumpkin siren: everyone on the ground stops dead where they are
+  if (rt.show && B.state !== 'in' && B.state !== 'out' && B.state !== 'skip'){
+    // a latecomer that lands mid-club joins the dance (unless it's floating)
+    const left = SHOW.end - showClock(rt.show);
+    if (danceSync && rt.show.danced && left > .5 && !(B.state === 'rest' && REST[B.restSpot.kind].sit === 'float')){ B.dance = B.danceLen = left; B.hop = null; if (B.state !== 'rest') B.b.root.position.y = 0; }
+    B.peck = 0; B.fly = 0; applyPose(B); B.postPose?.(); return;
+  }
   if (B.state === 'skip'){
     B.t = Math.min(1, B.t + dt/B.dur);
     const u = B.t*B.t*(3 - 2*B.t);
@@ -3381,6 +3473,7 @@ function unlockPlace(pid){
   goPlace(pid);
 }
 function goPlace(pid){
+  if (P.show) endShow(P);
   clearBirds(P); P.group.visible = false;
   cur = pid; P = RT[pid]; P.group.visible = true; P.spawnT = 1.2; applyEnv(pid);
   S.cur = pid; save();
