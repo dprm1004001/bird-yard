@@ -59,6 +59,8 @@ The island (`buildIsland`):
   - 4+: plumeria thickets: tiny bush blobs, smaller than the yard's bush, with plumeria peeking out between them. Birds walk round a thicket once it shows.
 - `HIDDEN_ZONE.island` is the front of the island, facing the starting view. It is kept empty of decor and items for the island's future hidden object. The feeder and cleaner spots were moved out of it.
 - There is no hidden object yet.
+- Flamingo (`flamingo`) is the biggest bird: `SIZE` 1.2 makes up for the island's .85 scale. Its bill has a hard black tip (`tipFrom`). It idles on one leg (`oneLeg`), and after eating it usually wades to `rt.wadeSpots`, three spots in the surf off the beach. It stands there with one leg folded up (rest kind `wade`).
+- Pelican (`pelican`) uses the `pouch` beak part with a `pouchColor` throat pouch.
 
 Each place grows decor in stages as shop items are placed there. The stage is the count of items in `S.items[pid]`, from 0 to 5.
 - yard: green ground, grass, flowers blooming one by one, butterflies from stage 3.

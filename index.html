@@ -923,6 +923,9 @@ function buildIsland(rt){
   // birds bob on the sea around the island
   for (const [x, z] of [[2.5,1.9],[-2.9,1.3],[3.2,-.6],[-1.7,-2.8]])
     rt.specials.push({kind:'water', pos:new THREE.Vector3(x, -.07, z), yaw:Math.random()*6, occupant:null});
+  // flamingo-only wading spots in the surf just off the beach (kept away from the front of the island)
+  rt.wadeSpots = [2.5, 3.75, 5.3].map(a => ({kind:'wade', occupant:null, yaw:a + Math.PI/2,
+    pos:new THREE.Vector3(Math.cos(a)*(ISLAND_R + .18), -.11, Math.sin(a)*(ISLAND_R + .18))}));
   // the palm: a ringed trunk curving over, and drooping fronds
   const segs = 6, pts = [];
   for (let i = 0; i <= segs; i++) pts.push(new THREE.Vector3(.012*i*i, i*.27, 0));
@@ -2361,6 +2364,7 @@ function leave(B){
   if (B.target){ B.target.claimed = null; B.target = null; }
   if (B.restSpot){ B.restSpot.occupant = null; B.restSpot = null; }
   setSit(B, null); B.b.root.rotation.z = 0;
+  B.b.legs.forEach(l => { l.scale.y = 1; });  // unfold a wading flamingo's raised leg
 }
 // how each kind of resting spot behaves; sit = how the bird sits there (legs tucked away)
 const REST = {
@@ -2369,7 +2373,14 @@ const REST = {
   water: {stay:40, extra:30, feather:7, sit:'float'},
   bowl:  {stay:30, extra:20, feather:7, sit:'float'},
   loaf:  {stay:45, extra:35, feather:6, sit:'loaf'},
+  wade:  {stay:35, extra:30, feather:7},
 };
+// a flamingo with nothing left to eat usually goes to stand on one leg in the island's surf
+function wadeSpot(B, rt){
+  if (!B.b.sp.oneLeg || !rt.wadeSpots || Math.random() >= .75) return null;
+  const f = rt.wadeSpots.filter(s => !s.occupant);
+  return f.length ? f[Math.floor(Math.random()*f.length)] : null;
+}
 // chance that a fed bird picks one of the place's special resting spots instead of perches
 const SPECIAL_CHANCE = {pond:.10, plaza:.13, yard:.08, river:.10, forest:.12, island:.14};
 function specialSpot(rt){
@@ -2455,6 +2466,8 @@ function updateBird(B, dt){
           r.position.copy(B.restSpot.pos); r.rotation.y = B.restSpot.yaw;
           B.state = 'rest'; B.restT = R.stay + Math.random()*R.extra; B.featherT = R.feather*.6; B.restClock = Math.random()*6;
           setSit(B, R.sit);
+          // wading flamingo: one leg folded up behind, standing on the other in the shallows
+          if (B.restSpot.kind === 'wade'){ const lg = B.b.legs[0]; lg.rotation.x = 1.25; lg.scale.y = .55; }
         } else { r.position.y = 0; B.state = 'walk'; }
       }
       else { rt.group.remove(r); rt.birds = rt.birds.filter(x => x !== B); }
@@ -2463,7 +2476,11 @@ function updateBird(B, dt){
     // resting birds stay a long while and shed feathers now and then
     const kind = B.restSpot.kind, R = REST[kind];
     B.restClock += dt;
-    if (kind === 'water' || kind === 'bowl'){
+    if (kind === 'wade'){
+      // stand still in the surf, swaying very slightly as the waves wash past
+      r.position.y = B.restSpot.pos.y + Math.sin(B.restClock*1.6)*.004;
+      r.rotation.z = Math.sin(B.restClock*.9)*.025;
+    } else if (kind === 'water' || kind === 'bowl'){
       // bob on the water; on the pond, also drift in a slow lazy loop
       const sp = B.restSpot.pos, d = kind === 'water' ? .18 : 0;
       r.position.set(sp.x + Math.sin(B.restClock*.25)*d, sp.y + Math.sin(B.restClock*2.2)*.008, sp.z + Math.cos(B.restClock*.25)*d - d);
@@ -2510,7 +2527,7 @@ function updateBird(B, dt){
       } else {
         if (!B.restChecked){
           B.restChecked = true;
-          const sp = specialSpot(rt) || (Math.random() < .7 ? freeSpot(rt) : null);
+          const sp = wadeSpot(B, rt) || specialSpot(rt) || (Math.random() < .7 ? freeSpot(rt) : null);
           if (sp && !B.hop){ r.position.y = 0; goRest(B, sp); applyPose(B); return; }
         }
         B.lookT -= dt;
@@ -2555,6 +2572,7 @@ function clearBirds(rt){
   for (const f of rt.food) f.claimed = null;
   for (const s of rt.spots) s.occupant = null;
   for (const s of rt.specials) s.occupant = null;
+  for (const s of rt.wadeSpots || []) s.occupant = null;
   // scripted moments end too; the longboard goes back to the bottom of the ramp
   for (const e of rt.extras) e.actors.forEach(removeActor);
   rt.extras = [];
