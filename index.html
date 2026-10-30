@@ -3818,10 +3818,35 @@ function resize(){
 }
 addEventListener('resize', resize);
 const clock = new THREE.Clock();
+// ---------- ambient sound per place: a looping bed that fades in while you're there and out when you leave ----------
+// Browsers only allow sound after the player's first tap, so nothing plays until then.
+const AMBIENT = {island:{src:'sounds/sea-waves.mp3', vol:.35}};
+const ambient = {};
+let soundOK = false;
+addEventListener('pointerdown', () => {
+  if (soundOK) return;
+  soundOK = true;
+  // iPhones only let an audio element play later if it was started inside a tap once: start each one now, silently, and pause it
+  for (const pid in AMBIENT){
+    const a = ambient[pid] ??= Object.assign(new Audio(AMBIENT[pid].src), {loop:true, volume:0});
+    a.play().then(() => { if (a.volume <= .001) a.pause(); }).catch(() => {});
+  }
+}, {capture:true});
+function updateAmbient(dt){
+  for (const pid in AMBIENT){
+    const want = soundOK && pid === cur && !document.hidden && !document.getElementById('title') ? AMBIENT[pid].vol : 0;
+    let a = ambient[pid];
+    if (!a){ if (!want) continue; a = ambient[pid] = new Audio(AMBIENT[pid].src); a.loop = true; a.volume = 0; }
+    a.volume = Math.max(0, Math.min(1, a.volume + Math.sign(want - a.volume)*Math.min(Math.abs(want - a.volume), dt*.4)));
+    if (want && a.paused) a.play().catch(() => {});
+    else if (!want && !a.paused && a.volume <= .001) a.pause();
+  }
+}
 function frame(){
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), .05); T0 += dt;
   const rt = P;
+  updateAmbient(dt);
 
   for (const t of rt.sources){
     if (t.auto !== undefined && (t.auto -= dt) <= 0){  // automatic feeder
