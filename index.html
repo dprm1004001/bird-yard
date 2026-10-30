@@ -3830,7 +3830,10 @@ addEventListener('resize', resize);
 const clock = new THREE.Clock();
 // ---------- ambient sound per place: a looping bed that fades in while you're there and out when you leave ----------
 // Browsers only allow sound after the player's first tap, so nothing plays until then.
-const AMBIENT = {yard:{src:'sounds/yard-spring-noon.mp3', vol:.22}, pond:{src:'sounds/pond-spring.mp3', vol:.22}, plaza:{src:'sounds/plaza-town-square.mp3', vol:.22}, forest:{src:'sounds/forest-night-crickets.mp3', vol:.22}, island:{src:'sounds/sea-seagull.mp3', vol:.22}};
+const AMBIENT = {yard:{src:'sounds/yard-spring-noon.mp3', vol:.22}, pond:{src:'sounds/pond-spring.mp3', vol:.22}, plaza:{src:'sounds/plaza-town-square.mp3', vol:.22}, forest:{src:'sounds/forest-night-crickets.mp3', vol:.22}, island:{src:'sounds/sea-seagull.mp3', vol:.22},
+  // a place can have several beds playing together: the river's stream and its birdsong
+  river:[{src:'sounds/river-forest-stream.mp3', vol:.22}, {src:'sounds/river-bird-chirp.mp3', vol:.22}]};
+const BEDS = Object.entries(AMBIENT).flatMap(([pid, v]) => [].concat(v).map((b, i) => ({...b, pid, key:i ? pid + i : pid})));
 // the speaker button under the camera turns every sound off and on; the choice is remembered on this device
 const MUTE_KEY = 'berry-yard-muted';
 let muted = false;
@@ -3847,8 +3850,8 @@ addEventListener('pointerdown', () => {
   if (soundOK) return;
   soundOK = true;
   // iPhones only let an audio element play later if it was started inside a tap once: start each one now, silently, and pause it
-  for (const pid in AMBIENT){
-    const a = ambient[pid] ??= Object.assign(new Audio(AMBIENT[pid].src), {loop:true, volume:0});
+  for (const B of BEDS){
+    const a = ambient[B.key] ??= Object.assign(new Audio(B.src), {loop:true, volume:0});
     a.play().then(() => { if (a.volume <= .001) a.pause(); }).catch(() => {});
   }
   for (const pid in CALLS){
@@ -3877,11 +3880,11 @@ function updateCalls(dt){
 }
 function updateAmbient(dt){
   updateCalls(dt);
-  for (const pid in AMBIENT){
+  for (const B of BEDS){
     // the pumpkin siren show takes over the forest's sound while it runs
-    const want = soundOK && !muted && pid === cur && !document.hidden && !document.getElementById('title') && !RT[pid].show ? AMBIENT[pid].vol : 0;
-    let a = ambient[pid];
-    if (!a){ if (!want) continue; a = ambient[pid] = new Audio(AMBIENT[pid].src); a.loop = true; a.volume = 0; }
+    const want = soundOK && !muted && B.pid === cur && !document.hidden && !document.getElementById('title') && !RT[B.pid].show ? B.vol : 0;
+    let a = ambient[B.key];
+    if (!a){ if (!want) continue; a = ambient[B.key] = new Audio(B.src); a.loop = true; a.volume = 0; }
     a.volume = Math.max(0, Math.min(1, a.volume + Math.sign(want - a.volume)*Math.min(Math.abs(want - a.volume), dt*.4)));
     if (want && a.paused) a.play().catch(() => {});
     else if (!want && !a.paused && a.volume <= .001) a.pause();
