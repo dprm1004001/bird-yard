@@ -2623,7 +2623,7 @@ function startGuitarist(rt){
     } else if (state === 'play'){
       life += dt;
       // the tune fades in over a second and out over the last two
-      guitarMusic.volume = muted ? 0 : GUITAR_VOL*Math.min(1, life, (PLAY - life)/2);
+      guitarMusic.volume = muted ? 0 : GUITAR_VOL*Math.max(0, Math.min(1, life, (PLAY - life)/2));  // never below 0: a negative volume throws and stalls the frame loop
       applyPose(A);
       // right wing (bird's right is -x) swings across the strings; left wing grips the neck
       const strum = Math.sin(life*15);
