@@ -90,6 +90,9 @@ body[data-place="forest"] .photo-help,body[data-place="island"] .photo-help{colo
   border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.25);transition:opacity .4s}
 .photo-flash{position:fixed;inset:0;z-index:7;background:#fff;opacity:0;pointer-events:none;transition:opacity .35s}
 .photo-flash.on{opacity:.85;transition:none}
+/* place change: fades over the scene (under the HUD) and back */
+.veil{position:fixed;inset:0;z-index:4;opacity:0;pointer-events:none;transition:opacity .2s ease}
+.veil.on{opacity:1}
 /* the dark forest: HUD text sitting directly on the scene turns light */
 /* dusk over the dark forest: muted dark purple, with a faint orange glow behind the treeline (the upper middle of the screen) */
 body[data-place="forest"]{background:linear-gradient(180deg,#272130 0%,#3b3146 16%,#634756 30%,#80594b 42%,#5a4250 56%,#342c3c 75%,#2a2432 100%)}
@@ -245,6 +248,7 @@ body[data-place="island"] .stats{color:#e3f3f6}
   <img class="photo-thumb" id="photoThumb" alt="방금 찍은 사진" hidden>
 </div>
 <div class="photo-flash" id="photoFlash"></div>
+<div class="veil" id="veil"></div>
 <!-- bottom stack, top to bottom: clean-up, place arrows, menu -->
 <div class="hud bottom">
   <div class="brow"><button class="pill clean" id="cleanBtn" hidden>똥 치우기</button></div>
@@ -3572,7 +3576,20 @@ const $ = id => document.getElementById(id);
 function stepPlace(d){
   const open = PLACE_ORDER.filter(p => S.places.includes(p));
   if (open.length < 2){ toast('아직 다른 장소가 없어요', '깃털을 모아 장소 메뉴에서 새 장소를 열어 보세요'); return; }
-  goPlace(open[(open.indexOf(cur) + d + open.length) % open.length]);
+  // quick presses step on from wherever the last press was headed
+  const from = veil.to || cur;
+  switchPlace(open[(open.indexOf(from) + d + open.length) % open.length]);
+}
+// a soft change of place: the screen fades to the next place's own background colour over 0.2 s,
+// the place switches behind it, then it fades back in
+const veil = {to:null, timer:0};
+function switchPlace(pid){
+  if (pid === cur && !veil.to) return;
+  const el = $('veil');
+  el.style.background = '#' + new THREE.Color(ENV[pid].bg).getHexString();
+  el.classList.add('on'); veil.to = pid;
+  clearTimeout(veil.timer);
+  veil.timer = setTimeout(() => { goPlace(veil.to); veil.to = null; el.classList.remove('on'); }, 200);
 }
 $('prevPlace').onclick = () => stepPlace(-1);
 $('nextPlace').onclick = () => stepPlace(1);
@@ -3687,7 +3704,7 @@ function renderPlaces(){
     r.querySelector('.rw').textContent = '찾아오는 새 · ' + pl.species.filter(k => S.seen[k] || !SPECIES[k].secret).map(k => S.seen[k] ? SPECIES[k].name : '???').join(', ');
     const btn = document.createElement('button'); btn.className = 'go';
     if (pid === cur){ btn.textContent = '여기 있어요'; btn.disabled = true; btn.classList.add('light'); }
-    else if (open){ btn.textContent = '이동하기'; btn.onclick = () => goPlace(pid); }
+    else if (open){ btn.textContent = '이동하기'; btn.onclick = () => switchPlace(pid); }
     else if (S.feathers >= pl.cost){ btn.innerHTML = '<span class="orb"></span>'; btn.append(` ${pl.cost}개로 열기`); btn.onclick = () => unlockPlace(pid); }
     else { btn.innerHTML = '<span class="orb"></span>'; btn.append(` ${pl.cost - S.feathers}개 더 필요해요`); btn.disabled = true; btn.classList.add('light'); }
     r.append(btn); box.append(r);
@@ -3736,7 +3753,7 @@ function unlockPlace(pid){
   if (S.places.includes(pid) || S.feathers < pl.cost) return;
   S.feathers -= pl.cost; S.places.push(pid); save();
   toast(`새 장소 · ${pl.name}`, `${pl.species.filter(k => !SPECIES[k].secret).map(k => SPECIES[k].name).join(', ')}이(가) 찾아올지도 몰라요`, true);
-  goPlace(pid);
+  switchPlace(pid);
 }
 function goPlace(pid){
   if (P.show) endShow(P);

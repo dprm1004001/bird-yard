@@ -41,6 +41,7 @@ The user alternates between two machines.
 - **No chirp bubbles.** The 구구/찌찌 text was removed on request. Tapping a bird only makes it flap.
 - Poop shows as soft grey overlapping ellipses, like rain spots. Dirt slows bird visits. "똥 치우기" and the cleaner plover clear it.
 - Bottom HUD order, top to bottom: 똥 치우기 → ◀ ▶ (switch place) → the 장소/상점/도감/업적 menu, which stays on one row on phones.
+- Changing place (◀ ▶, 이동하기, or opening a new place) goes through `switchPlace`. The screen fades to the next place's background colour over 0.2 s (`#veil`, under the HUD), switches, then fades back. Quick repeated arrow presses step on from where the last press was headed.
 - Drag that starts on a food source shakes it. Drag that starts on a feather sweeps feathers. Any other drag rotates the view.
 - Photo mode: the round camera button under the feather count (`photoBtn`) opens it (`enterPhoto`). The HUD hides and the game keeps running.
   - One finger or left drag turns (`camA`) and tilts (`photo.pitch`).
