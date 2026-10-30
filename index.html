@@ -186,6 +186,23 @@ body[data-place="island"] .stats{color:#e3f3f6}
 .restart{font:inherit;font-size:13px;color:var(--muted);background:none;border:0;padding:2px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .warn-back{position:fixed;inset:0;z-index:60;background:rgba(43,42,39,.35);display:flex;align-items:center;justify-content:center;padding:16px}
 .warn-back[hidden]{display:none!important}
+/* info button under the place name, and the credits card */
+.info-btn{pointer-events:auto;margin-top:6px;width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--muted);
+  font:italic 600 13px/1 Georgia,serif;cursor:pointer;display:grid;place-items:center;padding:0;box-shadow:0 1px 0 var(--line)}
+.info-btn:focus-visible{outline:2px solid var(--berry);outline-offset:2px}
+.info-back{position:fixed;inset:0;z-index:40;background:rgba(20,18,16,.45);display:flex;align-items:center;justify-content:center;padding:16px;
+  opacity:0;transition:opacity .25s ease}
+.info-back[hidden]{display:none}
+.info-back.on{opacity:1}
+.info-card{background:rgba(255,255,255,.7);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.8);border-radius:16px;
+  padding:20px 22px;max-width:420px;width:100%;max-height:min(80vh,560px);overflow:auto;color:var(--ink);box-shadow:0 10px 30px rgba(0,0,0,.25);
+  transform:translateY(14px);transition:transform .25s ease}
+.info-back.on .info-card{transform:none}
+.info-card h2{margin:0 0 6px;font-family:var(--display);font-weight:400;font-size:20px}
+.info-card h3{margin:14px 0 6px;font-size:13px;color:var(--muted);font-weight:600}
+.info-card ul{margin:0;padding-left:18px;display:grid;gap:6px;font-size:13px;line-height:1.5}
+.info-card a{color:var(--ink);text-underline-offset:2px;word-break:break-all}
+@media (prefers-reduced-motion: reduce){.info-back,.info-card{transition:none}}
 .warn{background:#fff3f2;border:1.5px solid #f0a9a3;border-radius:16px;padding:22px 22px 18px;max-width:340px;width:100%;display:grid;gap:10px;
   box-shadow:0 10px 30px rgba(120,30,30,.18);animation:pop .25s ease-out}
 .warn h2{margin:0;font-family:var(--display);font-weight:400;font-size:20px;color:#c23a3a}
@@ -226,6 +243,7 @@ body[data-place="island"] .stats{color:#e3f3f6}
 <div class="hud tl">
   <h1 class="brand" id="placeName">베리 마당</h1>
   <div class="stats" id="stats"></div>
+  <button class="info-btn" id="infoBtn" aria-label="정보 · 출처" title="정보 · 출처">i</button>
 </div>
 <div class="hud tr">
   <div class="pill feathers" id="featherPill" aria-label="깃털"><span class="orb"></span><b id="featherCount">0</b></div>
@@ -249,6 +267,23 @@ body[data-place="island"] .stats{color:#e3f3f6}
 </div>
 <div class="photo-flash" id="photoFlash"></div>
 <canvas class="veil" id="veil"></canvas>
+<!-- credits: a soft card over a dimmed screen; a tap outside it closes it -->
+<div class="info-back" id="infoBack" hidden>
+  <div class="info-card" role="dialog" aria-modal="true" aria-labelledby="infoTitle">
+    <h2 id="infoTitle">출처</h2>
+    <h3>효과음</h3>
+    <ul>
+    <li>Sound Effect by <a href="https://pixabay.com/ko/users/kokoreli777-39793239/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=169411" target="_blank" rel="noopener">michael koreli</a> from <a href="https://pixabay.com//?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=169411" target="_blank" rel="noopener">Pixabay</a></li>
+    <li>Sound Effect by <a href="https://pixabay.com/ko/users/shrek_30-49155118/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=339281" target="_blank" rel="noopener">Randy Magnum</a> from <a href="https://pixabay.com/sound-effects//?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=339281" target="_blank" rel="noopener">Pixabay</a></li>
+    <li>Sound Effect by <a href="https://pixabay.com/ko/users/farshad_hamzavi-45259344/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=421016" target="_blank" rel="noopener">Farshad Hamzavi</a> from <a href="https://pixabay.com/sound-effects//?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=421016" target="_blank" rel="noopener">Pixabay</a></li>
+    <li>Sound Effect by <a href="https://pixabay.com/ko/users/freesound_community-46691455/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=35130" target="_blank" rel="noopener">freesound_community</a> from <a href="https://pixabay.com//?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=35130" target="_blank" rel="noopener">Pixabay</a></li>
+    <li>Sound Effect by <a href="https://pixabay.com/ko/users/lazychillzone-40482846/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=223549" target="_blank" rel="noopener">Lazy Chill Zone</a> from <a href="https://pixabay.com//?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=223549" target="_blank" rel="noopener">Pixabay</a></li>
+    <li>Sound Effect by <a href="https://pixabay.com/ko/users/u_xg7ssi08yr-48039129/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=363627" target="_blank" rel="noopener">LoLa Joy</a> from <a href="https://pixabay.com/sound-effects//?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=363627" target="_blank" rel="noopener">Pixabay</a></li>
+    </ul>
+    <h3>음악</h3>
+    <ul><li><a href="https://youtu.be/T24rF_x0TmQ?si=CeuPhV-XZtRpx5Xm" target="_blank" rel="noopener">https://youtu.be/T24rF_x0TmQ</a></li></ul>
+  </div>
+</div>
 <!-- bottom stack, top to bottom: clean-up, place arrows, menu -->
 <div class="hud bottom">
   <div class="brow"><button class="pill clean" id="cleanBtn" hidden>똥 치우기</button></div>
@@ -3711,6 +3746,18 @@ $('soundBtn').onclick = () => setMuted(!muted);
 $('photoClose').onclick = exitPhoto;
 $('shutter').onclick = takePhoto;
 addEventListener('keydown', e => { if (photo && e.key === 'Escape') exitPhoto(); });
+// credits card: slides in over a dimmed screen; a tap outside the card (or Escape) slides it away
+function openInfo(){
+  const back = $('infoBack'); back.hidden = false;
+  requestAnimationFrame(() => requestAnimationFrame(() => back.classList.add('on')));
+}
+function closeInfo(){
+  const back = $('infoBack'); if (back.hidden) return;
+  back.classList.remove('on'); setTimeout(() => { if (!back.classList.contains('on')) back.hidden = true; }, 260);
+}
+$('infoBtn').onclick = openInfo;
+$('infoBack').addEventListener('click', e => { if (e.target === $('infoBack')) closeInfo(); });
+addEventListener('keydown', e => { if (e.key === 'Escape') closeInfo(); });
 function updateHUD(){
   $('placeName').textContent = PLACES[cur].name;
   $('stats').textContent = `떨어뜨린 먹이 ${S.dropped} · 먹은 먹이 ${S.eaten}`;

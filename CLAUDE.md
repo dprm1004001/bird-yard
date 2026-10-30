@@ -49,6 +49,7 @@ The user alternates between two machines.
   - `placeCamera` positions the camera in both modes.
   - The shutter (`takePhoto`) flashes, draws the scene over its background (the forest's dusk gradient is redrawn from `DUSK_STOPS`), saves `bird-yard-YYYYMMDD-HHMMSS.png`, and shows a thumbnail. In the claude.ai artifact it saves through the `downloads` capability (`window.claude.use("downloads")`, so the artifact is published with `capabilities: {downloads: true}`); elsewhere it uses a plain download link.
   - × or Escape leaves.
+- Credits: a small round “i” button under the place name and stats (`infoBtn`) opens a card (`#infoBack`, `openInfo`/`closeInfo`). The card is 70% white over a dimmed screen and slides in. Tapping outside it or pressing Escape slides it away. It lists the user's Pixabay sound credits and a YouTube music link exactly as given. Add new credits there when new sounds come in.
 - Sound toggle: the speaker button under the camera (`soundBtn`, `setMuted`) turns every sound off and on: the pumpkin knock, the ambient beds, and the siren-show music. While muted, the show music still plays silently to keep the beat clock. The choice is kept per device in localStorage `berry-yard-muted`.
 
 ## Places and per-place decor
