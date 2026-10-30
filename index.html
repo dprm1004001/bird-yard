@@ -430,6 +430,8 @@ const SHOP_CATS = [['아이템', ITEM_ORDER.filter(k => !ITEMS[k].cat)], ['새�
 const STUMP = {x:0, z:2.25, r:.24, h:.2};
 // 작은 물가's picnic mat, in the open grass in front of the basket; rot turns it to face the usual view
 const PICNIC = {x:-.35, z:2.1, w:1.2, d:.9, rot:-.22};
+// 맑은 강가's little hot spring, in the open grass at the front left
+const SPRING = {x:-.85, z:1.9, r:.5};
 const POND_W = {x:1.5, z:-1.1, rx:2.0, rz:1.45};  // the pond's water ellipse
 const ITEM_SPOTS = {
   yard:  {perch:[-1.3,1.4], feeder:[.8,1.6],  house:[2.1,-.4],  collector:[-2.1,.4], cleaner:[-.6,2.0]},
@@ -1387,7 +1389,7 @@ const riverDecor = (() => {
   const g = new THREE.Group(); RT.river.group.add(g);
   const RZ = -1.0, RW = 1.0;                       // river centre line and half width (plus a little bank)
   const FALL = {x:0, z:-2.55, top:1.0, len:1.05};  // waterfall lip, between the two rock stacks
-  const avoid = {obstacles:[{x:-.5, z:.75, r:.45}, {x:0, z:-2.05, r:.55}, ...Object.values(ITEM_SPOTS.river).map(([x, z]) => ({x, z, r:.38}))]};
+  const avoid = {obstacles:[{x:-.5, z:.75, r:.45}, {x:0, z:-2.05, r:.55}, {x:SPRING.x, z:SPRING.z, r:SPRING.r + .25}, ...Object.values(ITEM_SPOTS.river).map(([x, z]) => ({x, z, r:.38}))]};
   const bankSpot = (i, salt) => {
     for (let k = 0; k < 14; k++){
       const a = rnd(i*12.9 + salt + k*3.3)*Math.PI*2, d = .4 + Math.sqrt(rnd(i*7.3 + salt*3 + k))*3.0;
@@ -1826,6 +1828,8 @@ const plazaDecor = (() => {
 const HIDDEN = {
   yard:  {name:'작은 그루터기', cost:300,
           desc:'새들이 올라와 쉬거나 꾸벅꾸벅 잠을 자는 작은 그루터기예요. 가끔 그루터기 위에서 춤을 추거나, 작은 기타를 치는 새가 나타나요.'},
+  river: {name:'작은 온천', cost:300,
+          desc:'검은 바위로 둘러싼 뽀얀 하늘색 온천이에요. 김이 펄펄 나요. 새들이 물을 튀기며 목욕하거나, 머리에 작은 수건을 얹고 푹 익을 때까지 몸을 담가요.'},
   pond:  {name:'피크닉 돗자리', cost:300,
           desc:'연빨강·하양 체크 돗자리에 닫힌 바구니와 핫도그 접시가 놓여 있어요. 새들이 핫도그를 쪼아 먹거나, 나란히 앉아 캔맥주를 마셔요. 너무 마시면… 비틀비틀.'},
   plaza: {name:'롱보드 하프파이프', cost:300,
@@ -1899,9 +1903,63 @@ function placePicnic(rt, pop){
   rt.picnic = {seats, hotdog};
   if (pop){ g.userData.target = 1; g.scale.setScalar(.001); g.userData.pop = 0; }
 }
+// hot spring (river hidden object): a milky sky-blue pool ringed with dark rocks, a short fence behind, steam rising
+const steamGeo = new THREE.IcosahedronGeometry(.06, 0);
+function placeSpring(rt, pop){
+  const {x, z, r} = SPRING, g = new THREE.Group(); g.position.set(x, 0, z);
+  const pool = mesh(skin(shape(new THREE.CircleGeometry(r, 11).rotateX(-Math.PI/2), .06, 1000),
+    (c,px,py,pz) => c.set('#c9f2ee').lerp(col('#86d4da'), ss(.1, r, Math.hypot(px, pz))), 1000));
+  flatten(pool.geometry); pool.position.y = .022; pool.castShadow = false; pool.userData.spring = true; g.add(pool);
+  // dark wet rocks all round the rim, and one sitting out in the water
+  const rockGeos = ['#55575c','#46484d','#616369'].map((h, i) => solid(new THREE.DodecahedronGeometry(1, 0), h, 1001 + i, .12));
+  for (let i = 0; i < 13; i++){
+    const a = i/13*Math.PI*2 + rnd(i*3.1)*.2, d = r + .02 + rnd(i*5.7)*.05, s = .08 + rnd(i*2.3)*.06;
+    const m = mesh(rockGeos[i % 3]); m.scale.set(s*1.2, s*.7, s); m.position.set(Math.cos(a)*d, s*.3, Math.sin(a)*d); m.rotation.y = rnd(i)*6; g.add(m);
+  }
+  const mid = mesh(rockGeos[1]); mid.scale.set(.11, .07, .09); mid.position.set(.2, .03, -.12); g.add(mid);
+  // a short dark wooden fence round the back
+  for (let i = 0; i < 5; i++){
+    const a = Math.PI*(1.05 + i*.16), d = r + .2;
+    const post = mesh(solid(new THREE.BoxGeometry(.035, .3, .035).translate(0, .15, 0), '#4a3a2e', 1005));
+    post.position.set(Math.cos(a)*d, 0, Math.sin(a)*d); g.add(post);
+    if (i < 4){
+      const b = Math.PI*(1.05 + (i + .5)*.16), len = 2*d*Math.sin(Math.PI*.08) + .02;
+      for (const h of [.12, .25]){
+        const rail = mesh(solid(new THREE.BoxGeometry(len, .025, .02), '#5a4636', 1006));
+        rail.position.set(Math.cos(b)*d*Math.cos(Math.PI*.08), h, Math.sin(b)*d*Math.cos(Math.PI*.08)); rail.rotation.y = -b - Math.PI/2; g.add(rail);
+      }
+    }
+  }
+  rt.group.add(g);
+  rt.waterMeshes.push(pool);
+  // steam: a dozen soft white puffs that keep welling up out of the water, swelling and fading
+  const steam = [];
+  for (let i = 0; i < 14; i++){
+    const m = new THREE.Mesh(steamGeo, new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0, depthWrite:false}));
+    g.add(m); const a = rnd(i*4.1)*Math.PI*2, d = Math.sqrt(rnd(i*2.7))*r*.8; steam.push({m, t:i/14*3.2, life:3.2, x:Math.cos(a)*d, z:Math.sin(a)*d});
+  }
+  rt.hiddenObj = {g, spring:true, steam}; rt.elements.hidden = g;
+  addObstacle(rt, x, z, r + .1, true);
+  // four places to soak, spread round the pool
+  rt.springSpots = [[-.22,-.08],[.05,.2],[.25,.08],[-.05,-.25]].map(([dx, dz]) =>
+    ({kind:'bath', pos:new THREE.Vector3(x + dx, -.035, z + dz), yaw:Math.atan2(-dx, -dz) + Math.PI + (Math.random() - .5)*.6, occupant:null}));
+  if (pop){ g.userData.target = 1; g.scale.setScalar(.001); g.userData.pop = 0; }
+}
+function updateSteam(rt, dt){
+  const R = SPRING.r*.8;
+  for (const s of rt.hiddenObj.steam){
+    s.t += dt;
+    if (s.t >= s.life){ s.t -= s.life; const a = Math.random()*Math.PI*2, d = Math.sqrt(Math.random())*R; s.x = Math.cos(a)*d; s.z = Math.sin(a)*d; }
+    const k = s.t/s.life;
+    s.m.position.set(s.x + Math.sin(s.t*1.3 + s.z*9)*.05, .04 + k*.75, s.z);
+    s.m.scale.setScalar(.6 + k*2.2);
+    s.m.material.opacity = .42*Math.sin(k*Math.PI)*(1 - k*.4);
+  }
+}
 function placeHidden(pid, pop){
   const rt = RT[pid]; if (rt.hiddenObj) return;
   if (pid === 'yard') return placeStump(rt, pop);
+  if (pid === 'river') return placeSpring(rt, pop);
   if (pid === 'pond') return placePicnic(rt, pop);
   if (pid !== 'plaza') return;
   const {L, h, W} = HP, N = 12, sp = [], sc = [], wp = [], c = new THREE.Color();
@@ -1997,7 +2055,7 @@ function tapWater(x, y){
   if (!hit) return;
   const p = hit.point.clone();
   splash(P, p, 1);
-  if (Math.random() < .3) leapFish(P, p);
+  if (Math.random() < .3 && !hit.object.userData.spring) leapFish(P, p);  // no fish in the hot spring
 }
 function splash(rt, p, k){
   rt.drops ??= [];
@@ -2220,6 +2278,7 @@ function updateHidden(rt, dt){
     }
   }
   rt.extras = rt.extras.filter(e => e.update(dt));
+  if (rt.hiddenObj?.spring) updateSteam(rt, dt);
   updatePuffs(rt, dt);
 }
 const STAGE_TOAST = {
@@ -2511,12 +2570,12 @@ function faceTo(B, yaw, dt){
 function stepToward(B, tx, tz, dt){
   const p = B.b.root.position, st = B.step;
   if (!B.hop){
-    if ((B.rest -= dt) > 0) return;
+    if ((B.rest -= dt*(B.rush ? 3 : 1)) > 0) return;
     const dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz); if (d < .005) return;
     const L = Math.min(st.len, d);
     B.hop = {fx:p.x, fz:p.z, tx:p.x + dx/d*L, tz:p.z + dz/d*L, p:0};
   }
-  const h = B.hop; h.p = Math.min(1, h.p + dt/st.time);
+  const h = B.hop; h.p = Math.min(1, h.p + dt/st.time*(B.rush ? 2 : 1));
   p.x = h.fx + (h.tx - h.fx)*h.p; p.z = h.fz + (h.tz - h.fz)*h.p; p.y = Math.sin(Math.PI*h.p)*st.h;
   if (B.b.large){ B.b.legs[0].rotation.x = Math.sin(h.p*Math.PI)*.4; B.b.legs[1].rotation.x = -Math.sin(h.p*Math.PI)*.4; B.bob = Math.sin(h.p*Math.PI); }
   if (h.p >= 1){ B.hop = null; B.rest = B.b.large ? .01 : .04 + Math.random()*.08; p.y = 0; }
@@ -2602,7 +2661,7 @@ function leave(B){
   if (B.restSpot){ B.restSpot.occupant = null; B.restSpot = null; }
   setSit(B, null); B.b.root.rotation.z = 0;
   B.b.legs.forEach(l => { l.scale.y = 1; });  // unfold a wading flamingo's raised leg
-  B.sleeping = false; B.sleepSide = false; B.danceOnArrival = false;
+  B.sleeping = false; B.sleepSide = false; B.danceOnArrival = false; B.rush = false;
   if (B.can){ B.can.parent?.remove(B.can); B.can = null; } B.postPose = null;
 }
 // how each kind of resting spot behaves; sit = how the bird sits there (legs tucked away)
@@ -2615,6 +2674,7 @@ const REST = {
   wade:  {stay:35, extra:30, feather:7},
   stump: {stay:40, extra:40, feather:6, sit:'loaf'},
   picnic:{stay:30, extra:20, feather:7, sit:'loaf'},
+  bath:  {stay:20, extra:15, feather:6, sit:'float'},
   hotdog:{stay:3, extra:3, feather:99},
 };
 // ---------- picnic: hotdog pecking, beer on the mat, getting tipsy ----------
@@ -2660,6 +2720,44 @@ function goDrinkWater(B){
   B.waterAt = {x:POND_W.x + Math.cos(a)*POND_W.rx*1.16, z:POND_W.z + Math.sin(a)*POND_W.rz*1.16};
   pushOut(B.rt, B.waterAt, .1*BK);
   B.state = 'towater'; B.walkT = 0;
+}
+// ---------- hot spring: soaking, splashing, a towel on the head, going red, and running off to cool ----------
+function bathSpot(B, rt){
+  if (!rt.springSpots || Math.random() >= .5) return null;
+  const f = rt.springSpots.filter(s => !s.occupant);
+  return f.length ? f[Math.floor(Math.random()*f.length)] : null;
+}
+// the whole bird glows redder step by step as it heats up, and fades back as it cools
+const HEAT_STEPS = 8;
+const heatMats = Array.from({length:HEAT_STEPS + 1}, (_, i) => {
+  if (!i) return mat;
+  const m = mat.clone(); m.emissive = new THREE.Color(0xff3020); m.emissiveIntensity = .6*i/HEAT_STEPS; return m;
+});
+function setHeat(B, h){
+  B.heat = Math.max(0, h);
+  const lvl = Math.min(HEAT_STEPS, Math.round(B.heat*HEAT_STEPS));
+  if (lvl === (B.heatLvl || 0)) return;
+  B.heatLvl = lvl;
+  B.b.root.traverse(o => { if (o.isMesh && !o.userData.towel && heatMats.includes(o.material)) o.material = heatMats[lvl]; });
+}
+// a small folded white towel laid on top of the head
+function makeTowel(B){
+  const sp = B.b.sp, t = TPL[sp.tpl], hd = t.heads[sp.head || 'round'];
+  const m = mesh(solid(new THREE.BoxGeometry(t.hr*1.25, t.hr*.3, t.hr*.95), '#ffffff', 1010, .02));
+  m.position.set(0, hd.hh*.97, -t.hr*.05); m.rotation.set(-.12, .3, .08); m.userData.towel = true;
+  B.b.head.add(m); return m;
+}
+// boiled red: scramble out of the spring and either fly off to float on the river or run to its bank
+function hotExit(B){
+  const rt = B.rt, r = B.b.root;
+  B.restSpot.occupant = null; B.restSpot = null; setSit(B, null);
+  B.full = 3; B.restChecked = true;
+  const w = Math.random() < .5 ? rt.specials.filter(s => s.kind === 'water' && !s.occupant) : [];
+  if (w.length){ goRest(B, w[Math.floor(Math.random()*w.length)]); B.dur *= .55; return; }
+  const p = r.position, a = Math.atan2(-.02 - p.z, -1.1 - p.x);
+  B.coolAt = {x:p.x - .4 + Math.random()*.3, z:.02};
+  B.state = 'tocool'; B.walkT = 0; B.rush = true;
+  skipTo(B, {x:SPRING.x + Math.cos(a)*(SPRING.r + .25), z:SPRING.z + Math.sin(a)*(SPRING.r + .25)});
 }
 // with the stump bought, a fed bird often hops up onto it to rest
 function stumpSpot(B, rt){
@@ -2771,6 +2869,14 @@ function updateBird(B, dt){
             B.b.wings[1].add(B.can); B.sipT = 1 + Math.random()*2; B.sipC = -1; B.postPose = () => picnicPose(B);
           }
           if (B.restSpot.kind === 'hotdog') setSit(B, null);
+          if (B.restSpot.kind === 'bath'){
+            // about half lay a little towel on their head and just soak; the rest splash about
+            B.towel = Math.random() < .55 ? makeTowel(B) : null;
+            B.soakLong = Math.random() < (B.towel ? .6 : .3);   // these stay in till they're cooked
+            // the others get out while only a little pink; the stayers soak until they're boiled red
+            B.restT = B.soakLong ? 999 : (B.towel ? 16 : 24)*(.3 + Math.random()*.4);
+            B.splashT = .4;
+          }
           if (B.restSpot.kind === 'stump'){
             if (B.danceOnArrival){
               // came to dance: stand up on the stump and dance a while, then rest a moment and go
@@ -2798,12 +2904,22 @@ function updateBird(B, dt){
       r.position.set(sp.x + Math.sin(B.restClock*.25)*d, sp.y + Math.sin(B.restClock*2.2)*.008, sp.z + Math.cos(B.restClock*.25)*d - d);
       if (d) r.rotation.y = B.restClock*.25 + Math.PI/2;
       r.rotation.z = Math.sin(B.restClock*1.7)*.04;
+    } else if (kind === 'bath'){
+      // bob in the hot water and slowly heat up; towel birds cook faster
+      r.position.y = B.restSpot.pos.y + Math.sin(B.restClock*1.8)*.005;
+      setHeat(B, Math.min(1, (B.heat || 0) + dt/(B.towel ? 16 : 24)));
+      if (!B.towel && (B.splashT -= dt) <= 0){
+        B.splashT = .7 + Math.random()*1.3; B.wiggle = .45;
+        splash(rt, v3.set(r.position.x, .022, r.position.z), .45);
+      }
+      if (B.heat >= 1 && B.soakLong){ hotExit(B); applyPose(B); return; }
     } else if ((B.poopT -= dt) <= 0){ poop(B); B.poopT = 8 + Math.random()*10; }
     if ((B.featherT -= dt) <= 0){ dropFeather(rt, r.position); B.featherT = R.feather + Math.random()*4; }
     if (B.sleepSide){ B.headGoal = 0; B.peck = .1; r.rotation.z = 1.2 + Math.sin(B.restClock*1.2)*.04; }  // lying on its side, breathing
     else if (B.sleeping){ B.headGoal = 2.5; B.peck = .22; }   // dozing: head turned back and tucked down
     // an awake bird on the stump sometimes just gets up and dances
     else if (kind === 'stump' && Math.random() < dt*.08){ setSit(B, null); B.dance = B.danceLen = 4 + Math.random()*2; }
+    else if (B.towel && kind === 'bath'){ B.headGoal = 0; B.peck = .12; }  // eyes front, chin down, blissful
     else if (kind === 'hotdog') B.peck = Math.abs(Math.sin(B.restClock*Math.PI*2.2));  // peck, peck at the hotdog
     else if (Math.random() < dt*.6) B.headGoal = (Math.random() - .5)*1.6;
     if (kind === 'picnic'){
@@ -2825,6 +2941,17 @@ function updateBird(B, dt){
       faceTo(B, Math.atan2(POND_W.x - r.position.x, POND_W.z - r.position.z), 1);
       B.state = 'sipwater'; B.eatT = 0;
     } else stepToward(B, B.waterAt.x, B.waterAt.z, dt);
+  } else if (B.state === 'tocool'){
+    // a boiled bird dashes to the river's edge
+    const dx = B.coolAt.x - r.position.x, dz = B.coolAt.z - r.position.z, d = Math.hypot(dx, dz);
+    faceTo(B, Math.atan2(dx, dz), dt*2);
+    B.walkT += dt;
+    if ((d < .05 && !B.hop) || B.walkT > 9){ faceTo(B, Math.PI, 1); B.state = 'cooling'; B.eatT = 0; B.rush = false; }
+    else { stepToward(B, B.coolAt.x, B.coolAt.z, dt); checkStuck(B, dt, true, () => ({x:B.coolAt.x, z:B.coolAt.z})); }
+  } else if (B.state === 'cooling'){
+    // dipping its beak in the cold river till the red fades
+    B.eatT += dt; B.peck = Math.abs(Math.sin(B.eatT*Math.PI*1.4))*.8;
+    if (B.heat <= .08 || B.eatT > 16){ B.peck = 0; B.state = 'look'; B.lookT = 3 + Math.random()*3; }
   } else if (B.state === 'sipwater'){
     B.eatT += dt; B.peck = Math.abs(Math.sin(B.eatT*Math.PI*1.6));
     if (B.eatT >= 3.2){ B.peck = 0; setDrunk(B, 0); B.state = 'look'; B.lookT = 2 + Math.random()*2; }
@@ -2865,7 +2992,7 @@ function updateBird(B, dt){
       } else {
         if (!B.restChecked){
           B.restChecked = true;
-          const sp = wadeSpot(B, rt) || stumpSpot(B, rt) || picnicSpot(B, rt) || specialSpot(rt) || (Math.random() < .7 ? freeSpot(rt) : null);
+          const sp = wadeSpot(B, rt) || stumpSpot(B, rt) || picnicSpot(B, rt) || bathSpot(B, rt) || specialSpot(rt) || (Math.random() < .7 ? freeSpot(rt) : null);
           if (sp && !B.hop){ r.position.y = 0; goRest(B, sp); applyPose(B); return; }
         }
         B.lookT -= dt;
@@ -2900,11 +3027,17 @@ function updateBird(B, dt){
     r.position.x += Math.cos(T0*2.1 + ph)*dt*.18; r.position.z += Math.sin(T0*1.7 + ph)*dt*.18;
   }
   // birds on the ground never stand inside trunks, benches or sacks
-  if (B.state === 'walk' || B.state === 'eat' || B.state === 'look' || B.state === 'towater'){
+  if (B.state === 'walk' || B.state === 'eat' || B.state === 'look' || B.state === 'towater' || B.state === 'tocool' || B.state === 'cooling'){
     pushOut(rt, r.position, (B.b.large ? .16 : .1)*BK);
     // on the island, nobody wanders off the sand into the sea
     const d = Math.hypot(r.position.x, r.position.z), lim = rt.bound && rt.bound + .2;
     if (lim && d > lim){ r.position.x *= lim/d; r.position.z *= lim/d; }
+  }
+  // out of the spring, a hot bird cools slowly back to its own colours (fast in the river), steaming while it's still red
+  if (B.heat > 0 && !(B.state === 'rest' && B.restSpot?.kind === 'bath')){
+    const wet = B.state === 'cooling' || (B.state === 'rest' && B.restSpot?.kind === 'water');
+    setHeat(B, B.heat - dt/(wet ? 9 : 22));
+    if (B.heat > .55 && Math.random() < dt*2.5){ B.b.head.getWorldPosition(v3); puff(rt, v3); }
   }
   // flamingos idle on one leg: the other is tucked up out of sight while standing about
   if (B.b.sp.oneLeg && !B.restSpot) B.b.legs[0].visible = !(B.state === 'look' && !B.hop && !B.wander);
@@ -2922,6 +3055,7 @@ function clearBirds(rt){
   for (const s of rt.specials) s.occupant = null;
   for (const s of rt.wadeSpots || []) s.occupant = null;
   for (const s of rt.stumpSpots || []) s.occupant = null;
+  for (const s of rt.springSpots || []) s.occupant = null;
   if (rt.picnic){ rt.picnic.seats.forEach(s => { s.occupant = null; }); rt.picnic.hotdog.occupant = null; }
   // scripted moments end too; the longboard goes back to the bottom of the ramp
   for (const e of rt.extras) e.actors.forEach(removeActor);
@@ -3232,7 +3366,8 @@ function resetAll(){
     rt.cleaning = -1;
     for (const k in rt.elements) rt.group.remove(rt.elements[k]);
     for (const k in rt.items) rt.group.remove(rt.items[k].group);
-    rt.elements = {}; rt.items = {}; rt.spots = []; rt.cleaner = null; rt.hiddenObj = null; rt.stumpSpots = null; rt.picnic = null;
+    rt.elements = {}; rt.items = {}; rt.spots = []; rt.cleaner = null; rt.hiddenObj = null; rt.stumpSpots = null; rt.picnic = null; rt.springSpots = null;
+    if (rt.waterMeshes) rt.waterMeshes = rt.waterMeshes.filter(m => !m.userData.spring);
     rt.specials = rt.specials.filter(s => s.kind !== 'bowl');
     rt.obstacles = rt.obstacles.filter(o => !o.extra);
     rt.sources = rt.sources.filter(s => !s.extra);

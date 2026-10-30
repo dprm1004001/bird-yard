@@ -111,7 +111,18 @@ Hidden objects (`HIDDEN`):
   - `B.postPose` runs after `applyPose` each frame, for poses (like sipping) that override the wings.
 - The plaza has a longboard half-pipe that birds skate on.
 - After it is bought, rare odd moments happen in the plaza: a pigeon smoking at the foot of a lamp with the cigarette held in its wing, and a bird couple kissing on the facing bench.
-- Hidden objects for river, forest and island are still to be directed by the user.
+- 맑은 강가 (`river`) has a little hot spring (`SPRING`, `placeSpring`) in the grass at the front left, kept clear of river decor.
+  - It is a milky sky-blue pool ringed with dark rocks, with one rock in the water and a short dark wooden fence round the back. The user's reference was a Japanese outdoor onsen.
+  - Steam: 14 white puffs keep welling up out of the water (`updateSteam`). Tapping the pool splashes, but no fish leaps there.
+  - Fed birds often go to soak (`bathSpot`, 50%; rest kind `bath`, 4 spots, sit `float`).
+    - About half lay a small white towel on the head (`makeTowel`) and sit still. The rest splash about, flapping and throwing droplets.
+    - Soaking raises `B.heat`, which turns the whole bird redder in 8 emissive steps (`setHeat`, `heatMats`). Towel birds heat faster.
+  - Some bathers stay until they're boiled red (`B.soakLong`). At full heat they scramble out (`hotExit`):
+    - Half fly off fast to float on the river.
+    - Otherwise they dash (`B.rush`) to the riverbank (`tocool`), then dip their beak there (`cooling`).
+    - The others get out while only a little pink.
+  - Out of the spring, heat fades slowly back to the bird's own colours, faster in the river. A hot bird puffs steam.
+- Hidden objects for forest and island are still to be directed by the user.
 
 ## Hidden motion: the dance
 
