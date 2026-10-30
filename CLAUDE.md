@@ -69,8 +69,8 @@ The island (`buildIsland`):
 - Pelican (`pelican`) uses the `pouch` beak part with a `pouchColor` throat pouch.
 
 Each place grows decor in stages as shop items are placed there. The stage is the count of items in `S.items[pid]`, from 0 to 5.
-- yard: green ground, grass, flowers blooming one by one, butterflies from stage 3.
-- pond: blue-green grass, a natural stone ring, lily pads, pink rock flowers, lotus at stage 5.
+- yard: green ground (the same fresh grass greens as the river, `#78c266`/`#69b65c`/`#8bcf76`, at the user's request), grass, flowers blooming one by one, butterflies from stage 3.
+- pond: the river's grass-green ground with blue-green tufts, a natural stone ring, lily pads, pink rock flowers, lotus at stage 5.
 - plaza: colour-only brick floor. Stages add a 2nd lamp, a facing bench, stone planters (short stems, big blooms), back planters with cube hedges, then a clock tower showing the real time. The layout is deliberately symmetric and man-made.
 - river (`riverDecor`) is a cool valley.
   - 1+: green ground and grass on both banks.
