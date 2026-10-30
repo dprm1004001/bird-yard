@@ -457,6 +457,8 @@ const ITEM_SPOTS = {
   island:{perch:[-1.5,.9],  feeder:[1.9,.3],    house:[1.5,-.9],  collector:[-1.6,-.7], cleaner:[-.7,1.75]},
 };
 const HIDDEN_ZONE = {island:{x:.75, z:1.3, r:.8}};
+// the island's beach set inside HIDDEN_ZONE.island: hut on the left, two sunbeds to its right, all turned to face the usual view
+const HUT = {x:.75, z:1.3, rot:.55, hx:-.3, bed:[.28, .52]};
 const ALL_SPECIES = PLACE_ORDER.flatMap(p => PLACES[p].species);
 const SMALL4 = ['robin','tit','wren','bullfinch'];  // the "작은 새 도감" achievement set
 const BIRD_SCALE = .3;
@@ -1850,6 +1852,8 @@ const HIDDEN = {
           desc:'검은 바위로 둘러싼 뽀얀 하늘색 온천이에요. 김이 펄펄 나요. 새들이 물을 튀기며 목욕하거나, 머리에 작은 수건을 얹고 푹 익을 때까지 몸을 담가요.'},
   forest:{name:'자이언트 호박', cost:300,
           desc:'숲 안쪽에 놓인 커다란 조각 호박이에요. 깎아낸 눈과 입 사이로 노란 불빛이 새어 나와요.'},
+  island:{name:'해변 오두막', cost:300,
+          desc:'볏짚 지붕을 얹은 대나무 오두막과 하얀 선베드 두 개예요. 오두막은 옷장 겸용이라, 들어갔다 나온 새가 선글라스나 꽃목걸이, 화관, 훌라 치마를 걸치고 나와요.'},
   pond:  {name:'피크닉 돗자리', cost:300,
           desc:'연빨강·하양 체크 돗자리에 닫힌 바구니와 핫도그 접시가 놓여 있어요. 새들이 핫도그를 쪼아 먹거나, 나란히 앉아 캔맥주를 마셔요. 너무 마시면… 비틀비틀.'},
   plaza: {name:'롱보드 하프파이프', cost:300,
@@ -2112,8 +2116,107 @@ function updateShow(rt, dt){
   }
   pumpkinGlow.color.copy(glow); H.lamp.color.copy(glow);
 }
+// beach hut (island hidden object): a bamboo gazebo with a slatted back bench and a shaggy thatched roof
+// (it doubles as a wardrobe), and two white sunbeds side by side
+function placeHut(rt, pop){
+  const g = new THREE.Group(); g.position.set(HUT.x, 0, HUT.z); g.rotation.y = HUT.rot;
+  const bam = '#c49a50', bamD = '#a57a3a', W = .56, D = .5, PH = .82, FY = .12;  // tall enough for a flamingo to change inside
+  const hut = new THREE.Group(); hut.position.x = HUT.hx; g.add(hut);
+  const pole = (len, salt) => new THREE.CylinderGeometry(.022, .022, len, 5).translate(0, len/2, 0);
+  for (const [px, pz] of [[-W/2, -D/2], [W/2, -D/2], [-W/2, D/2], [W/2, D/2]]){
+    const m = mesh(solid(pole(PH), bam, 1040)); m.position.set(px, 0, pz); hut.add(m);
+  }
+  // floor of split bamboo, framed by round rails
+  hut.add(mesh(skin(shape(new THREE.BoxGeometry(W, .025, D, 6, 1, 1).translate(0, FY, 0)), (c,x,y,z,f) => c.set(Math.floor(f/2) % 2 ? '#b98c48' : '#a97d3e'), 1041)));
+  for (const [len, px, pz, ry] of [[W + .06, 0, D/2, 0], [W + .06, 0, -D/2, 0], [D + .06, -W/2, 0, Math.PI/2], [D + .06, W/2, 0, Math.PI/2]]){
+    const r = mesh(solid(new THREE.CylinderGeometry(.018, .018, len, 5).rotateZ(Math.PI/2), bamD, 1042)); r.position.set(px, FY - .02, pz); r.rotation.y = ry; hut.add(r);
+  }
+  // slatted backrest along the back
+  const back = new THREE.Group(); back.position.set(0, FY, -D/2 + .02); hut.add(back);
+  for (const y of [.09, .2]){ const r = mesh(solid(new THREE.CylinderGeometry(.013, .013, W, 5).rotateZ(Math.PI/2), bam, 1043)); r.position.y = y; back.add(r); }
+  for (let i = 0; i < 9; i++){ const sl = mesh(solid(new THREE.BoxGeometry(.03, .2, .008).translate(0, .1, 0), i % 2 ? bam : '#d2a95e', 1044)); sl.position.x = -W/2 + .05 + i*(W - .1)/8; back.add(sl); }
+  // the thatch: a deep four-sided roof with a shaggy hem, and a little tuft on top
+  const thatch = (c,x,y,z) => c.set('#8f6a3c').lerp(col('#b48c56'), h3(x, y, z, 3)*.8);
+  const roof = mesh(skin(shape(new THREE.ConeGeometry(.56, .34, 4, 2).rotateY(Math.PI/4).translate(0, PH + .15, 0), .02, 1045), thatch, 1045));
+  const hem = mesh(skin(shape(new THREE.CylinderGeometry(.56, .6, .07, 4, 1, true).rotateY(Math.PI/4).translate(0, PH - .03, 0), .025, 1046), thatch, 1046));
+  hem.material = hutInside;
+  const tuft = mesh(solid(new THREE.ConeGeometry(.03, .16, 5).translate(0, PH + .38, 0), '#a57c45', 1047));
+  hut.add(roof, hem, tuft);
+  // a shaggy fringe of straw hanging off the eaves
+  const strand = solid(new THREE.ConeGeometry(.03, .09, 3).rotateX(Math.PI).translate(0, -.045, 0), '#9c7642', 1048);
+  for (let i = 0; i < 28; i++){
+    const side = Math.floor(i/7), u = (i % 7 + .5)/7 - .5, e = .6/Math.SQRT2;  // half-width of the square eaves
+    const m = mesh(strand), [ax, az] = [[u, -.5], [.5, u], [-u, .5], [-.5, -u]][side];
+    m.position.set(ax*e*2, PH - .05, az*e*2); m.scale.y = .7 + rnd(i*3.3)*.6; m.castShadow = false; hut.add(m);
+  }
+  // white sunbeds: a flat mattress on a slim frame, the head end propped up
+  for (const bx of HUT.bed){
+    const bed = new THREE.Group(); bed.position.set(bx, 0, .02); g.add(bed);
+    bed.add(mesh(solid(new THREE.BoxGeometry(.17, .03, .3).translate(0, .075, .06), '#f6f6f2', 1050)));
+    const rest = mesh(solid(new THREE.BoxGeometry(.17, .03, .17).translate(0, 0, -.085), '#f6f6f2', 1051));
+    rest.position.set(0, .075, -.09); rest.rotation.x = -.6; bed.add(rest);
+    for (const [lx, lz] of [[-.07, -.15], [.07, -.15], [-.07, .19], [.07, .19]]){
+      const leg = mesh(solid(new THREE.BoxGeometry(.015, .06, .015).translate(0, .03, 0), '#d9d9d4', 1052)); leg.position.set(lx, 0, lz); bed.add(leg);
+    }
+  }
+  rt.group.add(g); g.updateMatrix();
+  const world = (lx, lz) => new THREE.Vector3(lx, 0, lz).applyMatrix4(g.matrix);
+  const hc = world(HUT.hx, 0);
+  addObstacle(rt, hc.x, hc.z, .36, true);
+  for (const bx of HUT.bed) for (const lz of [-.08, .14]){ const b = world(bx, lz); addObstacle(rt, b.x, b.z, .1, true); }
+  // where a bird changes (on the hut floor) and the spot in front of the hut it walks to and steps back out onto
+  const room = world(HUT.hx, .02); room.y = FY + .013;
+  rt.hut = {room, door:world(HUT.hx, D/2 + .22), yaw:HUT.rot, busy:null};
+  rt.hiddenObj = {g, hut:true}; rt.elements.hidden = g;
+  if (pop){ g.userData.target = 1; g.scale.setScalar(.001); g.userData.pop = 0; }
+}
+const hutInside = mat.clone(); hutInside.side = THREE.DoubleSide;
+// ---------- beach outfits, built from the bird's own template so they fit every species ----------
+const OUTFITS = ['shades', 'lei', 'crown', 'hula'];
+const FLOWER_COLS = ['#ff6f9a', '#ffd23b', '#ffffff', '#ff8a3b', '#c46cff'];
+function makeOutfit(b, kind){
+  const sp = b.sp, t = TPL[sp.tpl], hd = t.heads[sp.head || 'round'], {H, R, hr, bottom} = t, g = new THREE.Group();
+  const flower = (r, i) => mesh(solid(new THREE.IcosahedronGeometry(r, 0), FLOWER_COLS[i % FLOWER_COLS.length], 1060 + i % FLOWER_COLS.length));
+  if (kind === 'shades'){
+    // dark lenses over both eyes, tied by a bridge across the top of the beak
+    const a = sp.eyeAngle || .95, es = sp.eyeScale || 1;
+    for (const s of [-1, 1]){
+      const l = mesh(solid(new THREE.CylinderGeometry(hr*.36*es, hr*.32*es, hr*.05, 6).rotateX(Math.PI/2), '#16161a', 1065));
+      l.position.set(s*Math.sin(a)*hr*1.0, hd.hh*.56, Math.cos(a)*hr*1.0); l.rotation.y = s*a; g.add(l);
+    }
+    const br = mesh(solid(new THREE.BoxGeometry(2*Math.sin(a)*hr*.95, hr*.07, hr*.07), '#16161a', 1066));
+    br.position.set(0, hd.hh*.62, Math.cos(a)*hr*1.0 + hr*.08); g.add(br);
+    b.head.add(g);
+  } else if (kind === 'crown'){
+    // a ring of little flowers round the top of the head
+    const n = 9, rr = hr*.78;
+    for (let i = 0; i < n; i++){ const f = flower(hr*.14, i), q = i/n*Math.PI*2; f.position.set(Math.cos(q)*rr, hd.hh*.8, Math.sin(q)*rr); g.add(f); }
+    g.add(mesh(solid(new THREE.TorusGeometry(rr, hr*.04, 3, 9).rotateX(Math.PI/2).translate(0, hd.hh*.8, 0), '#4f9a45', 1067)));
+    b.head.add(g);
+  } else if (kind === 'lei'){
+    // a garland draped round the base of the neck, sloping down over the breast
+    const n = 11, rr = (b.large ? R*.8 : R*.9);  // a little wider than the body there, so the flowers sit on top of the feathers
+    for (let i = 0; i < n; i++){ const f = flower(R*.13, i), q = i/n*Math.PI*2; f.position.set(Math.cos(q)*rr, 0, Math.sin(q)*rr); g.add(f); }
+    g.position.y = bottom + H*(b.large ? .84 : .8); g.rotation.x = .35;
+    b.torso.add(g);
+  } else {
+    // hula skirt: a fringe of leaves hanging round the hips
+    const n = 12, rr = R*.98;
+    for (let i = 0; i < n; i++){
+      const q = i/n*Math.PI*2, len = H*.34;
+      const leaf = mesh(solid(new THREE.ConeGeometry(R*.13, len, 3).rotateX(Math.PI).translate(0, -len/2, 0).scale(1, 1, .35), i % 2 ? '#4f9a45' : '#6cbf4f', 1068 + i % 2));
+      leaf.position.set(Math.sin(q)*rr, 0, Math.cos(q)*rr); leaf.rotation.order = 'YXZ'; leaf.rotation.y = q; leaf.rotation.x = -.3; g.add(leaf);  // flared out a little
+    }
+    g.add(mesh(solid(new THREE.TorusGeometry(rr, R*.05, 3, 12).rotateX(Math.PI/2), '#8a6a3a', 1070)));
+    g.position.y = bottom + H*.36;
+    b.torso.add(g);
+  }
+  g.traverse(o => { o.castShadow = false; });
+  return g;
+}
 function placeHidden(pid, pop){
   const rt = RT[pid]; if (rt.hiddenObj) return;
+  if (pid === 'island') return placeHut(rt, pop);
   if (pid === 'forest') return placePumpkin(rt, pop);
   if (pid === 'yard') return placeStump(rt, pop);
   if (pid === 'river') return placeSpring(rt, pop);
@@ -2826,6 +2929,7 @@ function leave(B){
   setSit(B, null); B.b.root.rotation.z = 0;
   B.b.legs.forEach(l => { l.scale.y = 1; });  // unfold a wading flamingo's raised leg
   B.sleeping = false; B.sleepSide = false; B.danceOnArrival = false; B.rush = false;
+  if (B.rt.hut?.busy === B) B.rt.hut.busy = null;
   if (B.can){ B.can.parent?.remove(B.can); B.can = null; } B.postPose = null;
 }
 // how each kind of resting spot behaves; sit = how the bird sits there (legs tucked away)
@@ -3124,6 +3228,29 @@ function updateBird(B, dt){
     B.walkT += dt;
     if ((d < .05 && !B.hop) || B.walkT > 9){ B.rush = false; r.position.y = 0; goRest(B, coolSpot(rt, r.position.x)); B.dur *= .7; }
     else { stepToward(B, B.coolAt.x, B.coolAt.z, dt); checkStuck(B, dt, true, () => ({x:B.coolAt.x, z:B.coolAt.z})); }
+  } else if (B.state === 'tohut'){
+    const H = rt.hut, dx = H.door.x - r.position.x, dz = H.door.z - r.position.z, d = Math.hypot(dx, dz);
+    faceTo(B, Math.atan2(dx, dz), dt);
+    B.walkT += dt;
+    if ((d < .05 && !B.hop) || B.walkT > 10){ B.state = 'dress'; B.dressT = 0; B.p0 = r.position.clone(); }
+    else { stepToward(B, H.door.x, H.door.z, dt); checkStuck(B, dt, true, () => ({x:H.door.x, z:H.door.z})); }
+  } else if (B.state === 'dress'){
+    // hop up into the hut, twirl round about a second changing, then hop back out wearing something
+    const H = rt.hut, t = B.dressT += dt;
+    if (t < .35){ const u = t/.35; r.position.lerpVectors(B.p0, H.room, u); r.position.y = H.room.y*u + Math.sin(Math.PI*u)*.07; }
+    else if (t < 1.4){
+      r.position.copy(H.room); r.rotation.y += dt*Math.PI*3;
+      if (!B.outfit && t > .9){
+        B.outfit = makeOutfit(B.b, OUTFITS[Math.floor(Math.random()*OUTFITS.length)]);
+        for (let i = 0; i < 4; i++) puff(rt, v3.set(r.position.x + (Math.random() - .5)*.12, r.position.y + .1 + Math.random()*.1, r.position.z + (Math.random() - .5)*.12));
+      }
+    } else if (t < 1.75){
+      const u = (t - 1.4)/.35; r.position.lerpVectors(H.room, H.door, u); r.position.y = H.room.y*(1 - u) + Math.sin(Math.PI*u)*.07; faceTo(B, H.yaw, 1);
+    } else {
+      // out on the sand, showing off the new look for a while
+      r.position.set(H.door.x, 0, H.door.z); H.busy = null;
+      B.state = 'look'; B.lookT = 5 + Math.random()*4; B.restChecked = true;
+    }
   } else if (B.state === 'sipwater'){
     B.eatT += dt; B.peck = Math.abs(Math.sin(B.eatT*Math.PI*1.6));
     if (B.eatT >= 3.2){ B.peck = 0; setDrunk(B, 0); B.state = 'look'; B.lookT = 2 + Math.random()*2; }
@@ -3164,6 +3291,8 @@ function updateBird(B, dt){
       } else {
         if (!B.restChecked){
           B.restChecked = true;
+          // on the island, an undressed bird often pops into the beach hut to change
+          if (rt.hut && !B.outfit && !rt.hut.busy && !B.hop && Math.random() < .45){ rt.hut.busy = B; B.state = 'tohut'; B.walkT = 0; applyPose(B); return; }
           const sp = wadeSpot(B, rt) || stumpSpot(B, rt) || picnicSpot(B, rt) || bathSpot(B, rt) || specialSpot(rt) || (Math.random() < .7 ? freeSpot(rt) : null);
           if (sp && !B.hop){ r.position.y = 0; goRest(B, sp); applyPose(B); return; }
         }
@@ -3199,7 +3328,7 @@ function updateBird(B, dt){
     r.position.x += Math.cos(T0*2.1 + ph)*dt*.18; r.position.z += Math.sin(T0*1.7 + ph)*dt*.18;
   }
   // birds on the ground never stand inside trunks, benches or sacks
-  if (B.state === 'walk' || B.state === 'eat' || B.state === 'look' || B.state === 'towater' || B.state === 'tocool'){
+  if (B.state === 'walk' || B.state === 'eat' || B.state === 'look' || B.state === 'towater' || B.state === 'tocool' || B.state === 'tohut'){
     pushOut(rt, r.position, (B.b.large ? .16 : .1)*BK);
     // on the island, nobody wanders off the sand into the sea
     const d = Math.hypot(r.position.x, r.position.z), lim = rt.bound && rt.bound + .2;
@@ -3228,6 +3357,7 @@ function clearBirds(rt){
   for (const s of rt.wadeSpots || []) s.occupant = null;
   for (const s of rt.stumpSpots || []) s.occupant = null;
   for (const s of rt.springSpots || []) s.occupant = null;
+  if (rt.hut) rt.hut.busy = null;
   if (rt.picnic){ rt.picnic.seats.forEach(s => { s.occupant = null; }); rt.picnic.hotdog.occupant = null; }
   // scripted moments end too; the longboard goes back to the bottom of the ramp
   for (const e of rt.extras) e.actors.forEach(removeActor);
@@ -3543,7 +3673,7 @@ function resetAll(){
     rt.cleaning = -1;
     for (const k in rt.elements) rt.group.remove(rt.elements[k]);
     for (const k in rt.items) rt.group.remove(rt.items[k].group);
-    rt.elements = {}; rt.items = {}; rt.spots = []; rt.cleaner = null; rt.hiddenObj = null; rt.stumpSpots = null; rt.picnic = null; rt.springSpots = null;
+    rt.elements = {}; rt.items = {}; rt.spots = []; rt.cleaner = null; rt.hiddenObj = null; rt.stumpSpots = null; rt.picnic = null; rt.springSpots = null; rt.hut = null;
     if (rt.waterMeshes) rt.waterMeshes = rt.waterMeshes.filter(m => !m.userData.spring);
     rt.specials = rt.specials.filter(s => s.kind !== 'bowl');
     rt.obstacles = rt.obstacles.filter(o => !o.extra);

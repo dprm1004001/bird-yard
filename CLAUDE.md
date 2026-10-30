@@ -64,7 +64,7 @@ The island (`buildIsland`):
   - 3+: scallop and cone shells.
   - 4+: plumeria thickets: tiny bush blobs, smaller than the yard's bush, with plumeria peeking out between them. Birds walk round a thicket once it shows.
 - `HIDDEN_ZONE.island` is the front of the island, facing the starting view. It is kept empty of decor and items for the island's future hidden object. The feeder and cleaner spots were moved out of it.
-- There is no hidden object yet.
+- Its hidden object is the beach hut set (see Hidden objects).
 - Flamingo (`flamingo`) is the biggest bird: `SIZE` 1.2 makes up for the island's .85 scale. Its bill has a hard black tip (`tipFrom`). It idles on one leg (`oneLeg`), and after eating it usually wades to `rt.wadeSpots`, three spots in the surf off the beach. It stands there with one leg folded up (rest kind `wade`).
 - Pelican (`pelican`) uses the `pouch` beak part with a `pouchColor` throat pouch.
 
@@ -141,7 +141,16 @@ Hidden objects (`HIDDEN`):
     - `needsHidden:'forest'` keeps it out of `poolFor` until the pumpkin is placed.
     - `secret:true` makes its encyclopedia card "???" / "비밀 도감이에요." with no portrait until it's met. It's also left out of place lists and the place-open toast.
     - Once met, its card shows its `note`: "너는... 새가 아니지 않니?" (the user's line).
-- The island's hidden object is still to be directed by the user.
+- 바닷가 외딴섬 (`island`) has a beach set (`HUT`, `placeHut`) in `HIDDEN_ZONE.island`, all turned to face the usual view. The user's reference was a bamboo beach gazebo.
+  - The hut has bamboo posts, a split-bamboo floor, a slatted backrest, and a deep thatched roof with a straw fringe and a tuft. Colours are mixed deep because the island light bleaches them.
+  - The roof is tall (`PH` .82) so a flamingo fits inside.
+  - Two white sunbeds stand side by side to its right. They are objects only for now.
+  - The hut doubles as a wardrobe. A fed bird with no outfit often (45%) walks to its door (`tohut`), hops in, twirls about a second, and hops back out wearing one outfit (`dress`, `makeOutfit`). Then it shows off for a while. One bird at a time (`rt.hut.busy`).
+  - The four outfits (`OUTFITS`) are built from each bird's template dims, so they fit every species. They were checked on all six island birds.
+    - `shades`: dark lenses over the side eyes, with a bridge.
+    - `lei`: a ring of mixed flowers round the base of the neck.
+    - `crown`: a flower ring on the head.
+    - `hula`: a leaf fringe round the hips.
 
 ## Hidden motion: the dance
 
