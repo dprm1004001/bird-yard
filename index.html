@@ -504,7 +504,6 @@ const HIDDEN_ZONE = {island:{x:.75, z:1.3, r:.8}};
 // the island's beach set inside HIDDEN_ZONE.island: hut on the left, two sunbeds to its right, all turned to face the usual view
 const HUT = {x:.75, z:1.3, rot:.55, hx:-.3, bed:[.28, .52]};
 const ALL_SPECIES = PLACE_ORDER.flatMap(p => PLACES[p].species);
-const SMALL4 = ['robin','tit','wren','bullfinch'];  // the "작은 새 도감" achievement set
 const BIRD_SCALE = .3;
 // raptors and owls get an extra shrink on top of the global scale
 const SIZE = {falcon:.72, owl:.66, uralowl:.72, barnowl:.72,
@@ -573,11 +572,19 @@ const ACH = [
   {place:'yard', id:'crowd',   name:'북적북적',    desc:'새 3마리를 한꺼번에 모으기',    cur:() => S.maxCrowd, goal:3,  reward:'베리나무가 한 그루 더 자라요', element:'tree2'},
   {place:'yard', id:'regular', name:'단골 마당',   desc:'먹이 40개 먹이기',             cur:() => S.eaten,    goal:40, reward:'베리 마당에 작은 물그릇이 생겨요', element:'bowl'},
   ...CHAIN, ...DEX_DONE,
-  {place:'etc', id:'dex',     name:'작은 새 도감', desc:'작은 새 4종 모두 만나기',       cur:() => SMALL4.filter(k => S.seen[k]).length, goal:4, reward:'도감 완성 도장'},
-  // secret: shown as ??? until done. Tap the water at the pond or river until a fish leaps out
-  {place:'etc', id:'fish',    name:'첨벙! 물고기', desc:'물가를 톡 쳐서 물고기 만나기',  cur:() => S.fish || 0, goal:1, reward:'깃털 50개', feathers:50, secret:true},
+  // hidden achievements: everything about them reads ??? until they're done.
+  // fish: tap the water until a fish leaps out. The rest: tap the odd moment, or catch it in a photo (spot())
+  {place:'hidden', id:'fish',  name:'월척이오!',      desc:'연못이나 강가의 물을 톡 쳐서 물고기 발견하기',     cur:() => S.fish || 0, goal:1, reward:'깃털 50개', feathers:50, secret:true},
+  {place:'hidden', id:'drunk', name:'술이 웬수지',    desc:'술에 취한 새를 톡 치거나 사진에 담기',             cur:() => +!!S.found?.drunk, goal:1, reward:'깃털 50개', feathers:50, secret:true},
+  {place:'hidden', id:'smoke', name:'과태료 10만원',  desc:'담배 피우는 비둘기를 톡 치거나 사진에 담기',       cur:() => +!!S.found?.smoke, goal:1, reward:'깃털 50개', feathers:50, secret:true},
+  {place:'hidden', id:'kiss',  name:'오모나세상에',   desc:'벤치에서 뽀뽀하는 새들을 톡 치거나 사진에 담기',   cur:() => +!!S.found?.kiss, goal:1, reward:'깃털 50개', feathers:50, secret:true},
 ].sort((a, b) => (PLACE_ORDER.indexOf(a.place) + 1 || 99) - (PLACE_ORDER.indexOf(b.place) + 1 || 99));
 const done = id => S.ach.includes(id);
+// a hidden moment was caught (tapped or photographed)
+function spot(kind){
+  if ((S.found ??= {})[kind]) return;
+  S.found[kind] = true; save(); checkAch(); updateHUD();
+}
 const hasElement = el => ACH.some(a => a.element === el && done(a.id));
 // the achievement that brings a species (none for base birds and the bat)
 const unlockerOf = k => CHAIN.find(a => a.unlocks === k);
@@ -2357,7 +2364,9 @@ function checkHiddenUnlock(pid){
 const skyPoint = () => { const a = Math.random()*Math.PI*2; return new THREE.Vector3(Math.cos(a)*9, 4.5, Math.sin(a)*9); };
 function actor(rt, id){
   const b = buildBird(id); rt.group.add(b.root);
-  return {rt, b, id, fly:1, peck:0, headYaw:0, headGoal:0, wiggle:0, hop:null, rest:0, t:0};
+  const A = {rt, b, id, fly:1, peck:0, headYaw:0, headGoal:0, wiggle:0, hop:null, rest:0, t:0, act:null};
+  b.root.traverse(o => { o.userData.actor = A; });  // so a tap can find it; A.act names what it's up to ('smoke', 'kiss')
+  return A;
 }
 function flyTo(A, from, to){
   A.p0 = from.clone(); A.p2 = to.clone();
@@ -2499,7 +2508,7 @@ function startSmoker(rt){
   let state = 'in', life = 0, c = 0, exhaled = false, tipT = .8;
   rt.extras.push({kind:'smoke', actors:[A], update(dt){
     if (state === 'in'){
-      if (flyStep(A, dt, true)){ state = 'smoke'; A.fly = 0; A.b.root.position.y = 0; A.b.root.rotation.y = Math.atan2(-lx, -lz); }
+      if (flyStep(A, dt, true)){ state = 'smoke'; A.act = 'smoke'; A.fly = 0; A.b.root.position.y = 0; A.b.root.rotation.y = Math.atan2(-lx, -lz); }
       applyPose(A);
     } else if (state === 'smoke'){
       life += dt; c = (c + dt) % 3.2;
@@ -2518,7 +2527,7 @@ function startSmoker(rt){
       // swing the right wing up and inward so the cigarette reaches the beak
       wing.rotation.set(.34 + (-2.35 - .34)*lift, 0, .03 + (-.55 - .03)*lift);
       A.b.neck.rotation.x += -.25*lift;  // chin up while taking a drag
-      if (life > 15){ state = 'out'; flyTo(A, A.b.root.position, skyPoint()); }
+      if (life > 15){ state = 'out'; A.act = null; flyTo(A, A.b.root.position, skyPoint()); }
     } else {
       if (flyStep(A, dt, false)){ removeActor(A); return false; }
       applyPose(A);
@@ -2526,36 +2535,49 @@ function startSmoker(rt){
     return true;
   }});
 }
-// rare: two birds sit side by side on the facing bench and give each other little beak kisses
+// two birds sit side by side on the left of the snack bench and lean in for kiss after kiss, a little heart each time
+const KISS_SEAT = {x:-.3, y:.45, z:-.49};
 function startCouple(rt){
-  const pool = ['pigeon','crow'], id = pool[Math.floor(Math.random()*pool.length)];
-  const A1 = actor(rt, id), A2 = actor(rt, id), seat = {x:0, y:.45, z:1.42};
+  // the two loafing spots on that half of the seat are theirs for the scene
+  const seats = rt.specials.filter(s => s.kind === 'loaf' && s.pos.y > .3 && s.pos.x < 0);
+  if (seats.some(s => s.occupant)) return;
+  const hold = {}; seats.forEach(s => { s.occupant = hold; });
+  const pool = ['pigeon','crow','sparrow','bulbul'].filter(k => S.seen[k] || k === 'pigeon'), id = pool[Math.floor(Math.random()*pool.length)];
+  const A1 = actor(rt, id), A2 = actor(rt, id), seat = KISS_SEAT;
   flyTo(A1, skyPoint(), new THREE.Vector3(seat.x - .15, seat.y, seat.z));
   flyTo(A2, skyPoint(), new THREE.Vector3(seat.x + .15, seat.y, seat.z));
   let state = 'in', life = 0, kissed = false;
-  rt.extras.push({kind:'couple', actors:[A1, A2], update(dt){
+  const free = () => seats.forEach(s => { if (s.occupant === hold) s.occupant = null; });
+  rt.extras.push({kind:'couple', actors:[A1, A2], end:free, update(dt){
     if (state === 'in'){
       const d1 = A1.t >= 1 || flyStep(A1, dt, true), d2 = A2.t >= 1 || flyStep(A2, dt, true);
       if (d1 && d2){
-        state = 'sit'; A1.fly = A2.fly = 0; setSit(A1, 'loaf'); setSit(A2, 'loaf');
+        state = 'sit'; A1.act = A2.act = 'kiss'; A1.fly = A2.fly = 0; setSit(A1, 'loaf'); setSit(A2, 'loaf');
         A1.b.root.rotation.y = Math.PI/2; A2.b.root.rotation.y = -Math.PI/2;
       }
     } else if (state === 'sit'){
       life += dt;
-      const pulse = Math.max(0, Math.sin(life*1.5))**6, gap = .15 - .08*pulse;
+      // kisses come in pairs: smooch, smooch, a breath, then again
+      const ph = life % 2.6, pulse = ph < 1.2 ? Math.max(0, Math.sin(ph/1.2*Math.PI*2))**4 : 0, gap = .15 - .085*pulse;
       A1.b.root.position.x = seat.x - gap; A2.b.root.position.x = seat.x + gap;
-      A1.peck = A2.peck = pulse*.25;
-      if (pulse > .9 && !kissed){ kissed = true; puff(rt, new THREE.Vector3(seat.x, seat.y + .24, seat.z), true); }
+      A1.peck = A2.peck = pulse*.2;
+      if (pulse > .85 && !kissed){
+        kissed = true;
+        for (let k = 0; k < 2; k++) puff(rt, new THREE.Vector3(seat.x + (Math.random() - .5)*.08, seat.y + .2 + k*.05, seat.z + (Math.random() - .5)*.05), true);
+      }
       if (pulse < .1) kissed = false;
       if (life > 13){
-        state = 'out'; setSit(A1, null); setSit(A2, null); A1.peck = A2.peck = 0;
+        state = 'out'; A1.act = A2.act = null; free(); setSit(A1, null); setSit(A2, null); A1.peck = A2.peck = 0;
         flyTo(A1, A1.b.root.position, skyPoint()); flyTo(A2, A2.b.root.position, skyPoint());
       }
     } else {
       const e1 = flyStep(A1, dt, false), e2 = flyStep(A2, dt, false);
       if (e1 && e2){ removeActor(A1); removeActor(A2); return false; }
     }
-    applyPose(A1); applyPose(A2); return true;
+    applyPose(A1); applyPose(A2);
+    // stretch the necks toward each other as they kiss
+    if (state === 'sit'){ const k = A1.peck/.2; A1.b.neck.rotation.x += .35*k; A2.b.neck.rotation.x += .35*k; }
+    return true;
   }});
 }
 // a tiny guitar, sized to the bird's body radius R: two bouts, a sound hole, neck and head
@@ -2616,9 +2638,12 @@ function updateHidden(rt, dt){
     if (rt.skateT <= 0){ rt.skateT = 14 + Math.random()*10; startSkater(rt); }
     // every 10 s there's a small (7%) chance of one odd moment
     rt.oddT = (rt.oddT ?? 10) - dt;
+    // a kissing couple turns up on the bench quite often
+    rt.kissT = (rt.kissT ?? 6) - dt;
+    if (rt.kissT <= 0){ rt.kissT = 8 + Math.random()*6; if (Math.random() < .55 && !rt.extras.some(e => e.kind === 'couple')) startCouple(rt); }
     if (rt.oddT <= 0){
       rt.oddT = 10;
-      if (Math.random() < .07 && !rt.extras.some(e => e.kind !== 'skate')) (Math.random() < .5 ? startSmoker : startCouple)(rt);
+      if (Math.random() < .05 && !rt.extras.some(e => e.kind === 'smoke')) startSmoker(rt);
     }
   }
   rt.extras = rt.extras.filter(e => e.update(dt));
@@ -3444,7 +3469,7 @@ function clearBirds(rt){
   if (rt.hut) rt.hut.busy = null;
   if (rt.picnic){ rt.picnic.seats.forEach(s => { s.occupant = null; }); rt.picnic.hotdog.occupant = null; }
   // scripted moments end too; the longboard goes back to the bottom of the ramp
-  for (const e of rt.extras) e.actors.forEach(removeActor);
+  for (const e of rt.extras){ e.actors.forEach(removeActor); e.end?.(); }
   rt.extras = [];
   for (const p of rt.puffs) rt.group.remove(p.m);
   rt.puffs = [];
@@ -3469,6 +3494,9 @@ function pick(e){
   const nut = nutNear(e.clientX, e.clientY);
   if (nut) return {nut};
   if (birdHit) return {bird:birdHit.object.userData.agent};
+  // birds in a scripted moment (the smoker, the kissing couple, ...)
+  const actHit = ray.intersectObjects(P.extras.flatMap(e => e.actors.map(A => A.b.root)), true)[0];
+  if (actHit) return {actor:actHit.object.userData.actor};
   const srcHit = ray.intersectObjects(P.sources.flatMap(t => t.hit), false)[0];
   if (srcHit) return {src:srcHit.object.userData.src};
   return null;
@@ -3483,7 +3511,7 @@ canvas.addEventListener('pointerdown', e => {
   // and one that starts anywhere else turns the view
   const h = pick(e), onFeather = !h && featherNear(e.clientX, e.clientY);
   if (h?.nut){ crackNut(P, h.nut); drag = {moved:0}; return; }
-  drag = {x0:e.clientX, y0:e.clientY, lastX:e.clientX, lastY:e.clientY, moved:0, src:h?.src, bird:h?.bird, sweep:onFeather, orbit:!h && !onFeather};
+  drag = {x0:e.clientX, y0:e.clientY, lastX:e.clientX, lastY:e.clientY, moved:0, src:h?.src, bird:h?.bird, actor:h?.actor, sweep:onFeather, orbit:!h && !onFeather};
   if (onFeather) sweep(e.clientX, e.clientY);
 });
 canvas.addEventListener('pointermove', e => {
@@ -3505,7 +3533,8 @@ canvas.addEventListener('pointermove', e => {
 });
 const endDrag = () => {
   if (drag && !drag.orbit && drag.moved < 6){
-    if (drag.bird) drag.bird.wiggle = .45;
+    if (drag.bird){ drag.bird.wiggle = .45; if ((drag.bird.drunk || 0) >= 2) spot('drunk'); }
+    else if (drag.actor?.act) spot(drag.actor.act);
     else if (drag.src){
       const t = drag.src; t.shake = Math.min(1.6, t.shake + .7);
       if (dropFood(t) && Math.random() < .35) dropFood(t);
@@ -3601,8 +3630,16 @@ function snapshot(out = document.createElement('canvas')){
   c2.drawImage(src, 0, 0);
   return out;
 }
+// a photo that has an odd moment in frame counts as finding it
+function spotInFrame(){
+  const seen = p => { v3.copy(p).project(camera); return v3.z < 1 && Math.abs(v3.x) < .95 && Math.abs(v3.y) < .95; };
+  const head = b => b.head.getWorldPosition(new THREE.Vector3());
+  for (const B of P.birds) if ((B.drunk || 0) >= 2 && seen(head(B.b))) spot('drunk');
+  for (const e of P.extras) for (const A of e.actors) if (A.act && seen(head(A.b))) spot(A.act);
+}
 function takePhoto(){
   const out = snapshot();
+  spotInFrame();
   const fl = $('photoFlash'); fl.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => fl.classList.remove('on')));
   const d = new Date(), z = n => String(n).padStart(2, '0');
   const name = `bird-yard-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.png`;
@@ -3735,7 +3772,7 @@ function renderAch(){
   for (const a of ACH){
     if (a.place !== group){
       group = a.place;
-      const h = document.createElement('div'); h.className = 'dexsec'; h.textContent = PLACES[group]?.name || '그 밖의 업적'; box.append(h);
+      const h = document.createElement('div'); h.className = 'dexsec'; h.textContent = PLACES[group]?.name || '히든 업적'; box.append(h);
     }
     const v = Math.min(a.cur(), a.goal), ok = done(a.id), r = document.createElement('div');
     r.className = 'row' + (ok ? ' done' : '');
@@ -3743,7 +3780,7 @@ function renderAch(){
     const hide = a.secret && !ok;  // secret achievements reveal nothing until they're done
     r.querySelector('.nm').textContent = hide ? '???' : (ok ? '✓ ' : '') + a.name;
     r.querySelector('.ct').textContent = hide ? '? / ?' : `${v} / ${a.goal}`;
-    r.querySelector('.ds').textContent = hide ? '비밀 업적이에요.' : a.desc;
+    r.querySelector('.ds').textContent = hide ? '???' : a.desc;
     r.querySelector('.bar i').style.width = hide ? '0%' : (v/a.goal*100) + '%';
     r.querySelector('.rw').textContent = '보상 · ' + (hide ? '???' : a.reward);
     box.append(r);

@@ -122,7 +122,9 @@ Hidden objects (`HIDDEN`):
   - When a drunk's wander ends, half the time it totters to the pond edge (`goDrinkWater` → `sipwater`) and sobers up. Otherwise it leaves on a weaving, rolling flight.
   - `B.postPose` runs after `applyPose` each frame, for poses (like sipping) that override the wings.
 - The plaza has a longboard half-pipe that birds skate on.
-- After it is bought, rare odd moments happen in the plaza: a pigeon smoking at the foot of a lamp with the cigarette held in its wing, and a bird couple kissing on the facing bench.
+- After it is bought, odd moments happen in the plaza:
+  - A pigeon smokes at the foot of a lamp, holding the cigarette in its wing. This is rare: 5% every 10 s.
+  - A couple (`startCouple`) sits on the left half of the snack bench (`KISS_SEAT`), where the user marked. They lean in for kiss after kiss, in pairs, with hearts each time. They hold that half's two loaf spots while there. The user wanted this often: every 8–14 s, a 55% chance.
 - 맑은 강가 (`river`) has a little hot spring (`SPRING`, `placeSpring`) in the grass at the front left, kept clear of river decor.
   - It is a milky sky-blue pool ringed with dark rocks, with one rock in the water and a short dark wooden fence round the back. The user's reference was a Japanese outdoor onsen.
   - Steam: 14 white puffs keep welling up out of the water (`updateSteam`). Tapping the pool splashes, but no fish leaps there.
@@ -178,7 +180,12 @@ The user wants achievements tied to the encyclopedia: a place never opens with a
   - 열매 비: bush
   - 북적북적: second tree
   - 단골 마당: bowl
-- 작은 새 도감 and the secret fish achievement sit under "그 밖의 업적".
+- "히든 업적" group: everything (name, count, condition, reward) reads ??? until done. Each pays 50 feathers. The old 작은 새 도감 achievement was removed.
+  - 월척이오! (`fish`): tap the water until a fish leaps out.
+  - 술이 웬수지 (`drunk`): tap a drunk bird (`drunk >= 2`) or have one in a photo.
+  - 과태료 10만원 (`smoke`): tap the smoking pigeon or photograph it.
+  - 오모나세상에 (`kiss`): tap the kissing couple or photograph them.
+  - Finds are kept in `S.found` via `spot(kind)`. Actors are pickable (`userData.actor`, `A.act` names the moment). `spotInFrame` checks a photo for those heads on screen.
 - The achievement sheet is grouped by place.
 - A locked dex card shows which achievement brings that bird.
 - Old saves catch up quietly at boot (`checkAch(true)`).
