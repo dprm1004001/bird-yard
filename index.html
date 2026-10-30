@@ -572,12 +572,17 @@ const ACH = [
   {place:'yard', id:'crowd',   name:'북적북적',    desc:'새 3마리를 한꺼번에 모으기',    cur:() => S.maxCrowd, goal:3,  reward:'베리나무가 한 그루 더 자라요', element:'tree2'},
   {place:'yard', id:'regular', name:'단골 마당',   desc:'먹이 40개 먹이기',             cur:() => S.eaten,    goal:40, reward:'베리 마당에 작은 물그릇이 생겨요', element:'bowl'},
   ...CHAIN, ...DEX_DONE,
-  // hidden achievements: everything about them reads ??? until they're done.
-  // fish: tap the water until a fish leaps out. The rest: tap the odd moment, or catch it in a photo (spot())
-  {place:'hidden', id:'fish',  name:'월척이오!',      desc:'연못이나 강가의 물을 톡 쳐서 물고기 발견하기',     cur:() => S.fish || 0, goal:1, reward:'깃털 50개', feathers:50, secret:true},
-  {place:'hidden', id:'drunk', name:'술이 웬수지',    desc:'술에 취한 새를 톡 치거나 사진에 담기',             cur:() => +!!S.found?.drunk, goal:1, reward:'깃털 50개', feathers:50, secret:true},
-  {place:'hidden', id:'smoke', name:'과태료 10만원',  desc:'담배 피우는 비둘기를 톡 치거나 사진에 담기',       cur:() => +!!S.found?.smoke, goal:1, reward:'깃털 50개', feathers:50, secret:true},
-  {place:'hidden', id:'kiss',  name:'오모나세상에',   desc:'벤치에서 뽀뽀하는 새들을 톡 치거나 사진에 담기',   cur:() => +!!S.found?.kiss, goal:1, reward:'깃털 50개', feathers:50, secret:true},
+  // hidden achievements: the name, count and reward read ??? until done; the subtitle (hint) is always shown as a sly nudge.
+  // fish: tap the water until a fish leaps out. party: set off the pumpkin show. The rest: tap the moment or catch it in a photo (spot())
+  ...[
+    ['fish',   '월척이오!',     '이야, 여기 물고기 맛집이네',      () => S.fish || 0],
+    ['drunk',  '술이 웬수지',   '아저씨, 거 적당히 마시라니까!'],
+    ['smoke',  '과태료 10만원', '흡연은 흡연구역에서만!'],
+    ['kiss',   '오모나세상에',  '조옿을 때다~'],
+    ['spring', '시원~허다',     '거짓말! 뜨겁잖아!!'],
+    ['party',  '핼러윈 파티!',  '야라라라 잇포즈츠 윳쿠리'],
+    ['aloha',  '알로하오예',    '맛있는~ 포장마차 가득가득~'],
+  ].map(([id, name, hint, cur]) => ({place:'hidden', id, name, desc:hint, hint, cur:cur || (() => +!!S.found?.[id]), goal:1, reward:'깃털 50개', feathers:50, secret:true})),
 ].sort((a, b) => (PLACE_ORDER.indexOf(a.place) + 1 || 99) - (PLACE_ORDER.indexOf(b.place) + 1 || 99));
 const done = id => S.ach.includes(id);
 // a hidden moment was caught (tapped or photographed)
@@ -2155,7 +2160,7 @@ const SHOW = {prep:1.6, club:3.95, beat:.48, end:11.5, out:1.5, cool:10};
 const CLUB_COLORS = ['#ff3b5c','#b04dff','#3b7bff','#2fe08a','#ffd23b','#ff8a2b'].map(col);
 const glowYellow = col('#ffd060'), glowRed = col('#ff2a1a'), lampWarm = col('#ffa040');
 function startShow(rt){
-  rt.show = {t:0, music:false, danced:false};
+  rt.show = {t:0, music:false, danced:false}; spot('party');
   const H = rt.hiddenObj; H.siren.visible = true; H.siren.rotation.y = 0;
 }
 // the clock the show runs on: the music's own time once it plays, so the colours and dancing stay on the beat
@@ -3533,7 +3538,7 @@ canvas.addEventListener('pointermove', e => {
 });
 const endDrag = () => {
   if (drag && !drag.orbit && drag.moved < 6){
-    if (drag.bird){ drag.bird.wiggle = .45; if ((drag.bird.drunk || 0) >= 2) spot('drunk'); }
+    if (drag.bird){ drag.bird.wiggle = .45; spotBird(drag.bird); }
     else if (drag.actor?.act) spot(drag.actor.act);
     else if (drag.src){
       const t = drag.src; t.shake = Math.min(1.6, t.shake + .7);
@@ -3630,11 +3635,17 @@ function snapshot(out = document.createElement('canvas')){
   c2.drawImage(src, 0, 0);
   return out;
 }
+// hidden moments a single bird can be caught in: tipsy, soaking in (or boiled red from) the hot spring, dressed up from the beach hut
+function spotBird(B){
+  if ((B.drunk || 0) >= 2) spot('drunk');
+  if (B.restSpot?.kind === 'bath' || (B.heat || 0) > .3) spot('spring');
+  if (B.outfit) spot('aloha');
+}
 // a photo that has an odd moment in frame counts as finding it
 function spotInFrame(){
   const seen = p => { v3.copy(p).project(camera); return v3.z < 1 && Math.abs(v3.x) < .95 && Math.abs(v3.y) < .95; };
   const head = b => b.head.getWorldPosition(new THREE.Vector3());
-  for (const B of P.birds) if ((B.drunk || 0) >= 2 && seen(head(B.b))) spot('drunk');
+  for (const B of P.birds) if (seen(head(B.b))) spotBird(B);
   for (const e of P.extras) for (const A of e.actors) if (A.act && seen(head(A.b))) spot(A.act);
 }
 function takePhoto(){
@@ -3780,7 +3791,7 @@ function renderAch(){
     const hide = a.secret && !ok;  // secret achievements reveal nothing until they're done
     r.querySelector('.nm').textContent = hide ? '???' : (ok ? '✓ ' : '') + a.name;
     r.querySelector('.ct').textContent = hide ? '? / ?' : `${v} / ${a.goal}`;
-    r.querySelector('.ds').textContent = hide ? '???' : a.desc;
+    r.querySelector('.ds').textContent = a.hint ? `“${a.hint}”` : hide ? '???' : a.desc;
     r.querySelector('.bar i').style.width = hide ? '0%' : (v/a.goal*100) + '%';
     r.querySelector('.rw').textContent = '보상 · ' + (hide ? '???' : a.reward);
     box.append(r);

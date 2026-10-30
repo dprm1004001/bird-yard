@@ -180,11 +180,15 @@ The user wants achievements tied to the encyclopedia: a place never opens with a
   - 열매 비: bush
   - 북적북적: second tree
   - 단골 마당: bowl
-- "히든 업적" group: everything (name, count, condition, reward) reads ??? until done. Each pays 50 feathers. The old 작은 새 도감 achievement was removed.
-  - 월척이오! (`fish`): tap the water until a fish leaps out.
-  - 술이 웬수지 (`drunk`): tap a drunk bird (`drunk >= 2`) or have one in a photo.
-  - 과태료 10만원 (`smoke`): tap the smoking pigeon or photograph it.
-  - 오모나세상에 (`kiss`): tap the kissing couple or photograph them.
+- "히든 업적" group: until done, the name, count and reward read ???, but the subtitle always shows the user's sly hint line in quotes (`hint`). Each pays 50 feathers. The old 작은 새 도감 achievement was removed.
+  - 월척이오! (`fish`, "이야, 여기 물고기 맛집이네"): tap the water until a fish leaps out.
+  - 술이 웬수지 (`drunk`, "아저씨, 거 적당히 마시라니까!"): tap a drunk bird (`drunk >= 2`) or photograph one.
+  - 과태료 10만원 (`smoke`, "흡연은 흡연구역에서만!"): tap or photograph the smoking pigeon.
+  - 오모나세상에 (`kiss`, "조옿을 때다~"): tap or photograph the kissing couple.
+  - 시원~허다 (`spring`, "거짓말! 뜨겁잖아!!"): tap or photograph a bird soaking in the hot spring, or one still red from it.
+  - 핼러윈 파티! (`party`, "야라라라 잇포즈츠 윳쿠리"): set off the pumpkin siren show.
+  - 알로하오예 (`aloha`, "맛있는~ 포장마차 가득가득~"): tap or photograph a bird wearing a beach-hut outfit.
+  - `spotBird` checks one bird for drunk, spring and aloha.
   - Finds are kept in `S.found` via `spot(kind)`. Actors are pickable (`userData.actor`, `A.act` names the moment). `spotInFrame` checks a photo for those heads on screen.
 - The achievement sheet is grouped by place.
 - A locked dex card shows which achievement brings that bird.
