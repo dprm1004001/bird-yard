@@ -42,6 +42,12 @@ The user alternates between two machines.
 - Poop shows as soft grey overlapping ellipses, like rain spots. Dirt slows bird visits. "똥 치우기" and the cleaner plover clear it.
 - Bottom HUD order, top to bottom: 똥 치우기 → ◀ ▶ (switch place) → the 장소/상점/도감/업적 menu, which stays on one row on phones.
 - Drag that starts on a food source shakes it. Drag that starts on a feather sweeps feathers. Any other drag rotates the view.
+- Photo mode: the round camera button under the feather count (`photoBtn`) opens it (`enterPhoto`). The HUD hides and the game keeps running.
+  - One finger or left drag turns (`camA`) and tilts (`photo.pitch`).
+  - Wheel or pinch zooms (`photo.dist`). A held-wheel (middle) drag or a two-finger drag slides the view (`photoPan`, `photo.pan`).
+  - `placeCamera` positions the camera in both modes.
+  - The shutter (`takePhoto`) flashes, draws the scene over its background (the forest's dusk gradient is redrawn from `DUSK_STOPS`), saves `bird-yard-YYYYMMDD-HHMMSS.png`, and shows a thumbnail.
+  - × or Escape leaves.
 
 ## Places and per-place decor
 

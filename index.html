@@ -68,6 +68,25 @@ body{background:var(--void);color:var(--ink);font-family:var(--body);overflow:hi
   box-shadow:0 2px 0 var(--line);flex:none}
 .nav:active{transform:translateY(1px);box-shadow:none}
 .nav:focus-visible{outline:2px solid var(--berry);outline-offset:2px}
+.cam{display:grid;place-items:center;padding:0}
+/* photo mode */
+body.photo .hud,body.photo .hint,body.photo .toasts{display:none!important}
+.photo-ui{position:fixed;inset:0;z-index:6;pointer-events:none}
+.photo-ui[hidden],.photo-thumb[hidden]{display:none}
+.photo-ui > *{pointer-events:auto}
+.photo-x{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));font-size:22px;line-height:1}
+.photo-help{position:absolute;top:calc(20px + env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));right:76px;margin:0;
+  font-size:12px;color:var(--muted);pointer-events:none}
+body[data-place="forest"] .photo-help,body[data-place="island"] .photo-help{color:#f1ecf2;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.shutter{position:absolute;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:68px;height:68px;border-radius:50%;
+  border:4px solid #fff;background:rgba(43,42,39,.18);box-shadow:0 0 0 2px rgba(43,42,39,.35),0 2px 10px rgba(0,0,0,.25);cursor:pointer;padding:0;display:grid;place-items:center}
+.shutter i{width:50px;height:50px;border-radius:50%;background:#fff;transition:transform .12s}
+.shutter:active i{transform:scale(.88)}
+.shutter:focus-visible{outline:2px solid var(--berry);outline-offset:3px}
+.photo-thumb{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(26px + env(safe-area-inset-bottom,0px));width:72px;border-radius:8px;
+  border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.25);transition:opacity .4s}
+.photo-flash{position:fixed;inset:0;z-index:7;background:#fff;opacity:0;pointer-events:none;transition:opacity .35s}
+.photo-flash.on{opacity:.85;transition:none}
 /* the dark forest: HUD text sitting directly on the scene turns light */
 /* dusk over the dark forest: muted dark purple, with a faint orange glow behind the treeline (the upper middle of the screen) */
 body[data-place="forest"]{background:linear-gradient(180deg,#272130 0%,#3b3146 16%,#634756 30%,#80594b 42%,#5a4250 56%,#342c3c 75%,#2a2432 100%)}
@@ -204,7 +223,19 @@ body[data-place="island"] .stats{color:#e3f3f6}
 </div>
 <div class="hud tr">
   <div class="pill feathers" id="featherPill" aria-label="깃털"><span class="orb"></span><b id="featherCount">0</b></div>
+  <button class="nav cam" id="photoBtn" aria-label="포토 모드" title="포토 모드">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true">
+      <path d="M4 8h3l1.6-2.4h6.8L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.6"/></svg>
+  </button>
 </div>
+<!-- photo mode: everything else hides; a shutter, a close button and a short how-to -->
+<div class="photo-ui" id="photoUI" hidden>
+  <button class="nav photo-x" id="photoClose" aria-label="포토 모드 나가기">×</button>
+  <p class="photo-help" id="photoHelp">드래그로 돌려 보기 · 휠·두 손가락으로 확대 · 휠 누른 채·두 손가락으로 끌어 위치 옮기기</p>
+  <button class="shutter" id="shutter" aria-label="사진 찍기"><i></i></button>
+  <img class="photo-thumb" id="photoThumb" alt="방금 찍은 사진" hidden>
+</div>
+<div class="photo-flash" id="photoFlash"></div>
 <!-- bottom stack, top to bottom: clean-up, place arrows, menu -->
 <div class="hud bottom">
   <div class="brow"><button class="pill clean" id="cleanBtn" hidden>똥 치우기</button></div>
@@ -3386,6 +3417,7 @@ let drag = null;
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointerdown', e => {
   canvas.setPointerCapture(e.pointerId);
+  if (photo) return photoDown(e);
   if (e.button === 2){ drag = {orbit:true, lastX:e.clientX, lastY:e.clientY, moved:0}; return; }
   // a drag that starts on a food source shakes it, one that starts on a feather sweeps feathers,
   // and one that starts anywhere else turns the view
@@ -3395,6 +3427,7 @@ canvas.addEventListener('pointerdown', e => {
   if (onFeather) sweep(e.clientX, e.clientY);
 });
 canvas.addEventListener('pointermove', e => {
+  if (photo) return photoMove(e);
   if (!drag){ canvas.classList.toggle('over-tree', !!pick(e)); return; }
   const dx = e.clientX - drag.lastX, dy = e.clientY - drag.lastY;
   drag.lastX = e.clientX; drag.lastY = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
@@ -3422,9 +3455,100 @@ const endDrag = () => {
   if (drag && drag.orbit && drag.moved < 6 && !tapPumpkin(drag.x0, drag.y0) && P.waterMeshes) tapWater(drag.x0, drag.y0);
   drag = null;
 };
-canvas.addEventListener('pointerup', endDrag);
-canvas.addEventListener('pointercancel', () => { drag = null; });
-canvas.addEventListener('wheel', e => { e.preventDefault(); camD = Math.min(11, Math.max(3.5, camD*(1 + e.deltaY*.001))); }, {passive:false});
+canvas.addEventListener('pointerup', e => photo ? photoUp(e) : endDrag());
+canvas.addEventListener('pointercancel', e => { if (photo) photoUp(e); drag = null; });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (photo) photo.dist = Math.min(14, Math.max(.8, photo.dist*(1 + e.deltaY*.0012)));
+  else camD = Math.min(11, Math.max(3.5, camD*(1 + e.deltaY*.001)));
+}, {passive:false});
+
+// ======================================================================
+//  Photo mode: free camera (turn, tilt, zoom, slide) and a shutter that saves a PNG.
+//  One finger / left drag turns and tilts; wheel or pinch zooms; a held-wheel (middle) drag or two fingers slide the view
+// ======================================================================
+let photo = null;
+const LOOK0 = new THREE.Vector3(0, .55, 0);
+function enterPhoto(){
+  if (photo) return;
+  drag = null;
+  photo = {dist:camD*1.118, pitch:Math.atan2(.5, 1), pan:new THREE.Vector3(), pts:new Map(), last:null};
+  document.body.classList.add('photo'); $('photoUI').hidden = false;
+  for (const s of document.querySelectorAll('.sheet')) s.classList.remove('open');
+}
+function exitPhoto(){
+  if (!photo) return;
+  photo = null;
+  document.body.classList.remove('photo'); $('photoUI').hidden = true; $('photoThumb').hidden = true;
+}
+// where the camera sits: in photo mode from its own orbit, otherwise the usual fixed tilt round the middle of the place
+function placeCamera(){
+  const portrait = innerWidth/innerHeight < 1 ? Math.pow(innerHeight/innerWidth, .55) : 1;
+  if (photo){
+    const D = photo.dist*portrait, c = Math.cos(photo.pitch), tgt = v3.copy(LOOK0).add(photo.pan);
+    camera.position.set(tgt.x + Math.sin(camA)*c*D, tgt.y + Math.sin(photo.pitch)*D, tgt.z + Math.cos(camA)*c*D);
+    camera.lookAt(tgt);
+  } else {
+    const D = camD*portrait;
+    camera.position.set(Math.sin(camA)*D, D*.5, Math.cos(camA)*D);
+    camera.lookAt(LOOK0);
+  }
+}
+// slide the view along the screen: right/left and up/down, scaled so the scene keeps pace with the finger
+function photoPan(dx, dy){
+  const k = photo.dist*Math.tan(camera.fov*Math.PI/360)*2/innerHeight;
+  const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+  photo.pan.addScaledVector(right, -dx*k).addScaledVector(up, dy*k);
+  photo.pan.y = Math.max(-.5, Math.min(3, photo.pan.y));
+  photo.pan.clampLength(0, 8);
+}
+function photoDown(e){
+  photo.pts.set(e.pointerId, {x:e.clientX, y:e.clientY, mid:e.button === 1});
+  photo.last = null;
+}
+function photoMove(e){
+  const pts = photo.pts, p = pts.get(e.pointerId); if (!p) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y;
+  if (pts.size >= 2){
+    // two fingers: the gap between them zooms, their midpoint slides the view
+    const [a, b] = [...pts.values()], before = {gap:Math.hypot(a.x - b.x, a.y - b.y), mx:(a.x + b.x)/2, my:(a.y + b.y)/2};
+    p.x = e.clientX; p.y = e.clientY;
+    const gap = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x)/2, my = (a.y + b.y)/2;
+    if (before.gap > 10 && gap > 10) photo.dist = Math.min(14, Math.max(.8, photo.dist*before.gap/gap));
+    photoPan(mx - before.mx, my - before.my);
+    return;
+  }
+  p.x = e.clientX; p.y = e.clientY;
+  if (p.mid) photoPan(dx, dy);                       // held wheel: slide
+  else {                                            // one finger / left button: turn and tilt
+    camGoal -= dx*.006; camA = camGoal;
+    photo.pitch = Math.min(1.45, Math.max(-.05, photo.pitch + dy*.005));
+  }
+}
+function photoUp(e){ photo.pts.delete(e.pointerId); }
+canvas.addEventListener('auxclick', e => { if (photo) e.preventDefault(); });
+canvas.addEventListener('mousedown', e => { if (photo && e.button === 1) e.preventDefault(); });  // no autoscroll on a wheel press
+// the shutter: draw the scene over its own background (the forest's dusk sky is CSS behind the canvas) and save it
+const DUSK_STOPS = [[0,'#272130'],[.16,'#3b3146'],[.3,'#634756'],[.42,'#80594b'],[.56,'#5a4250'],[.75,'#342c3c'],[1,'#2a2432']];
+function takePhoto(){
+  placeCamera(); renderer.render(scene, camera);
+  const src = renderer.domElement, out = document.createElement('canvas'); out.width = src.width; out.height = src.height;
+  const c2 = out.getContext('2d'), e = ENV[cur];
+  if (e.dusk){ const gr = c2.createLinearGradient(0, 0, 0, out.height); DUSK_STOPS.forEach(([o, h]) => gr.addColorStop(o, h)); c2.fillStyle = gr; }
+  else c2.fillStyle = '#' + new THREE.Color(e.bg).getHexString();
+  c2.fillRect(0, 0, out.width, out.height);
+  c2.drawImage(src, 0, 0);
+  const fl = $('photoFlash'); fl.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => fl.classList.remove('on')));
+  const d = new Date(), z = n => String(n).padStart(2, '0');
+  const name = `bird-yard-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.png`;
+  out.toBlob(blob => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.append(a); a.click(); a.remove();
+    const th = $('photoThumb'); th.src = url; th.hidden = false; th.style.opacity = 1;
+    clearTimeout(takePhoto.t); takePhoto.t = setTimeout(() => { th.style.opacity = 0; }, 2200);
+  }, 'image/png');
+}
 
 // ======================================================================
 //  HUD, toasts, sheets
@@ -3439,6 +3563,10 @@ function stepPlace(d){
 $('prevPlace').onclick = () => stepPlace(-1);
 $('nextPlace').onclick = () => stepPlace(1);
 $('cleanBtn').onclick = cleanUp;
+$('photoBtn').onclick = enterPhoto;
+$('photoClose').onclick = exitPhoto;
+$('shutter').onclick = takePhoto;
+addEventListener('keydown', e => { if (photo && e.key === 'Escape') exitPhoto(); });
 function updateHUD(){
   $('placeName').textContent = PLACES[cur].name;
   $('stats').textContent = `떨어뜨린 먹이 ${S.dropped} · 먹은 먹이 ${S.eaten}`;
@@ -3741,10 +3869,7 @@ function frame(){
   if (crowd > S.maxCrowd){ S.maxCrowd = crowd; save(); checkAch(); updateHUD(); }
 
   camA += (camGoal - camA)*Math.min(1, dt*6);
-  const portrait = innerWidth/innerHeight < 1 ? Math.pow(innerHeight/innerWidth, .55) : 1;
-  const D = camD*portrait;
-  camera.position.set(Math.sin(camA)*D, D*.5, Math.cos(camA)*D);
-  camera.lookAt(0, .55, 0);
+  placeCamera();
   // the opaque title screen hides the game, so skip drawing it until the title starts fading out
   const titleEl = document.getElementById('title');
   if (!titleEl || titleEl.classList.contains('leaving')) renderer.render(scene, camera);
