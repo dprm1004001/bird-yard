@@ -2178,8 +2178,8 @@ function makeSiren(){
 const sirenInside = mat.clone(); sirenInside.side = THREE.DoubleSide;
 // tapping the pumpkin: a hollow wooden knock and a little squash-and-bounce.
 // Ten quick taps set off the siren show
-const woodTap = new Audio('sounds/wood-tap.m4a'); woodTap.preload = 'auto';
-const showMusic = new Audio('sounds/yararara.m4a'); showMusic.preload = 'auto'; showMusic.volume = .55;  // the club track is loud: kept well under full
+const woodTap = new Audio('sounds/wood-tap.mp4'); woodTap.preload = 'auto';
+const showMusic = new Audio('sounds/yararara.mp4'); showMusic.preload = 'auto'; showMusic.volume = .55;  // the club track is loud: kept well under full
 function tapPumpkin(x, y){
   const H = P.hiddenObj; if (!H?.pumpkin) return false;
   ndc.set(x/innerWidth*2 - 1, -(y/innerHeight)*2 + 1); ray.setFromCamera(ndc, camera);
@@ -2633,7 +2633,7 @@ function makeGuitar(R){
 }
 // a bird stands on the stump with a little guitar and strums it, very badly, with a wing, while a soft guitar tune plays.
 // A bird just resting up there makes way for it
-const guitarMusic = new Audio('sounds/guitar.m4a'); guitarMusic.preload = 'auto';
+const guitarMusic = new Audio('sounds/guitar.mp4'); guitarMusic.preload = 'auto';
 const GUITAR_VOL = .043;
 function startGuitarist(rt){
   const spots = rt.stumpSpots; if (!spots) return;
@@ -4016,9 +4016,9 @@ const clock = new THREE.Clock();
 // ---------- ambient sound per place: a looping bed that fades in while you're there and out when you leave ----------
 // Browsers only allow sound after the player's first tap, so nothing plays until then.
 // beds sit at .15; the plaza's recording is quiet, so it gets .3; the sea (.1) and above all the river's stream (.04) are loud recordings
-const AMBIENT = {yard:{src:'sounds/yard-spring-noon.m4a', vol:.095}, pond:{src:'sounds/pond-spring.m4a', vol:.13}, plaza:{src:'sounds/plaza-town-square.m4a', vol:.26}, forest:{src:'sounds/forest-night-crickets.m4a', vol:.13}, island:{src:'sounds/sea-seagull.m4a', vol:.085},
+const AMBIENT = {yard:{src:'sounds/yard-spring-noon.mp4', vol:.095}, pond:{src:'sounds/pond-spring.mp4', vol:.13}, plaza:{src:'sounds/plaza-town-square.mp4', vol:.26}, forest:{src:'sounds/forest-night-crickets.mp4', vol:.13}, island:{src:'sounds/sea-seagull.mp4', vol:.085},
   // a place can have several beds playing together: the river's stream and its birdsong
-  river:[{src:'sounds/river-forest-stream.m4a', vol:.035}, {src:'sounds/river-bird-chirp.m4a', vol:.13}]};
+  river:[{src:'sounds/river-forest-stream.mp4', vol:.035}, {src:'sounds/river-bird-chirp.mp4', vol:.13}]};
 const BEDS = Object.entries(AMBIENT).flatMap(([pid, v]) => [].concat(v).map((b, i) => ({...b, pid, key:i ? pid + i : pid})));
 // the speaker button under the camera turns every sound off and on; the choice is remembered on this device
 const MUTE_KEY = 'berry-yard-muted';
@@ -4047,7 +4047,7 @@ addEventListener('pointerdown', () => {
 }, {capture:true});
 // one-off calls layered over a place's bed: an owl hoots in the dark forest, very softly, after gaps of 8 s, 5 s, 13 s, then round again.
 // The clock starts over each time you arrive, and stops while muted, while the siren show runs, or before the first tap
-const CALLS = {forest:{src:'sounds/owl-hoot.m4a', vol:.047, gaps:[8, 5, 13]}};
+const CALLS = {forest:{src:'sounds/owl-hoot.mp4', vol:.047, gaps:[8, 5, 13]}};
 const calls = {};
 function updateCalls(dt){
   for (const pid in CALLS){
