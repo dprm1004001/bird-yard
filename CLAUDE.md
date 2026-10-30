@@ -124,6 +124,12 @@ Hidden objects (`HIDDEN`):
 - While `B.dance > 0`, a bird does nothing else. The pose resets cleanly afterwards.
 - For now it happens on its own, rarely: about once every three minutes when three or more birds are on the ground. It is meant to be tied to a hidden object later.
 
+## Water taps and the secret achievement
+
+- In the pond and the river, a plain tap (not a drag) on the water (`rt.waterMeshes`) runs `tapWater`. It throws up droplets and a ripple ring (`splash`).
+- 30% of the time a little light-navy low-poly fish leaps out in an arc and plops back in (`leapFish`). It counts in `S.fish`.
+- Achievement `fish` "첨벙! 물고기" is **secret** (`secret:true`). It shows as ??? with no condition until it's earned. It's earned on the first fish and pays 50 feathers (an `a.feathers` reward).
+
 ## Behaviour notes
 
 - Birds rest on perches and birdhouses. They also take special rests: floating on water (pond and river), loafing (식빵 굽기) on benches or logs, and in the yard's bowl.
