@@ -22,6 +22,9 @@ The user alternates between two machines.
 - Title screen (`#title`): "Bird Yard" fades in over the white void, then a button appears.
   - The button reads 시작하기 on a first visit and 이어하기 once `berry-yard-visited` or a save exists.
   - Returning players also get a grey underlined "처음부터 다시하기" link. It opens a reddish warning dialog, and confirming runs `resetAll()`.
+  - Easter egg (`titleFx`): tapping the empty title screen drops a grain on a small 3D stage behind the logo, and a bird flies in to eat it.
+    - First-time players only see 울새 and 까치. Returning players get birds from their encyclopedia (`S.seen`).
+    - The main scene isn't rendered while the title is up.
 - Admin mode: 업적 sheet → 관리자 모드 → code `4575`. It gives 99999 feathers and opens every place and achievement. It does not fill the encyclopedia.
 
 ## Style rules the user has set

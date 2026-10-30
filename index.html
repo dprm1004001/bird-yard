@@ -166,6 +166,10 @@ body[data-place="island"] .stats{color:#e3f3f6}
 .warn button{font:inherit;font-size:14px;padding:8px 16px;border-radius:999px;cursor:pointer;border:1px solid #e3c2bf;background:#fff;color:var(--ink)}
 .warn button.danger{background:#d64545;border-color:#d64545;color:#fff}
 @media (prefers-reduced-motion: reduce){.logo,.title-actions{animation:none;opacity:1;transform:none}.title{transition:none}}
+/* easter egg: a little 3D stage behind the logo where tapped grain falls and birds drop in to eat it */
+.title-fx{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.logo,.title-actions{position:relative;z-index:1}
+.logo{pointer-events:none}
 </style>
 </head>
 <body>
@@ -2997,7 +3001,9 @@ function frame(){
   const D = camD*portrait;
   camera.position.set(Math.sin(camA)*D, D*.5, Math.cos(camA)*D);
   camera.lookAt(0, .55, 0);
-  renderer.render(scene, camera);
+  // the opaque title screen hides the game, so skip drawing it until the title starts fading out
+  const titleEl = document.getElementById('title');
+  if (!titleEl || titleEl.classList.contains('leaving')) renderer.render(scene, camera);
 }
 
 // ---------- boot ----------
@@ -3014,10 +3020,80 @@ const VISITED_KEY = 'berry-yard-visited';
 let visited = false;
 try { visited = !!localStorage.getItem(VISITED_KEY) || !!localStorage.getItem(KEY); } catch {}
 if (visited){ $('startBtn').textContent = '이어하기'; $('restartLink').hidden = false; }
+// easter egg: tap the empty title screen and a grain falls; a bird flies down to peck it up.
+// First-time players only meet the robin and the magpie; returning players get birds from their encyclopedia.
+const titleFx = (() => {
+  const host = $('title'), cv = document.createElement('canvas'); cv.className = 'title-fx'; host.prepend(cv);
+  const r = new THREE.WebGLRenderer({canvas:cv, antialias:true, alpha:true});
+  r.setPixelRatio(Math.min(devicePixelRatio, 2)); r.shadowMap.enabled = true;
+  const sc = new THREE.Scene();
+  sc.add(new THREE.HemisphereLight(0xffffff, 0xd8d4cc, .85));
+  const sl = new THREE.DirectionalLight(0xffffff, .75); sl.position.set(2, 5, 2.5); sl.castShadow = true;
+  Object.assign(sl.shadow.camera, {left:-4, right:4, top:4, bottom:-4}); sc.add(sl);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 30).rotateX(-Math.PI/2), new THREE.ShadowMaterial({opacity:.12}));
+  floor.receiveShadow = true; sc.add(floor);
+  const cam = new THREE.PerspectiveCamera(30, 1, .05, 50); cam.position.set(0, 2.2, 3.6); cam.lookAt(0, .15, 0);
+  const rt = {id:'title', group:new THREE.Group()}; sc.add(rt.group);
+  const seen = Object.keys(S.seen || {}).filter(k => SPECIES[k]);
+  const pool = visited && seen.length ? seen : ['robin', 'magpie'];
+  const seeds = [], visits = [];
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), hit = new THREE.Vector3(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const size = () => { r.setSize(innerWidth, innerHeight, false); cam.aspect = innerWidth/innerHeight; cam.updateProjectionMatrix(); };
+  size(); addEventListener('resize', size);
+  host.addEventListener('pointerdown', e => {
+    if (e.target.closest('button') || !$('warnBack').hidden) return;
+    ndc.set(e.clientX/innerWidth*2 - 1, -(e.clientY/innerHeight)*2 + 1); ray.setFromCamera(ndc, cam);
+    if (!ray.ray.intersectPlane(plane, hit)) return;
+    const x = Math.max(-2.2, Math.min(2.2, hit.x)), z = Math.max(-1.6, Math.min(1.4, hit.z));
+    const m = mesh(FOOD.seed.geo); m.position.set(x, .9, z); m.rotation.y = Math.random()*6; rt.group.add(m);
+    const s = {m, vy:0, landed:false, claimed:false, wait:.3 + Math.random()*.6}; seeds.push(s);
+  });
+  function call(s){
+    s.claimed = true;
+    const id = pool[Math.floor(Math.random()*pool.length)], A = actor(rt, id), p = s.m.position;
+    const from = skyPoint(), dx = from.x - p.x, dz = from.z - p.z, d = Math.hypot(dx, dz);
+    const reach = (A.b.large ? .24 : .15)*BK;
+    flyTo(A, from, new THREE.Vector3(p.x + dx/d*reach, 0, p.z + dz/d*reach));
+    visits.push({A, s, state:'in', t:0});
+  }
+  let last = performance.now(), alive = true;
+  (function loop(now){
+    if (!alive) return;
+    requestAnimationFrame(loop);
+    const dt = Math.min(.05, (now - last)/1000); last = now;
+    for (const s of seeds){
+      if (!s.landed){ s.vy -= 9.8*dt; s.m.position.y += s.vy*dt; s.m.rotation.x += dt*6;
+        if (s.m.position.y <= .02){ s.m.position.y = .02; s.landed = true; } }
+      else if (!s.claimed && (s.wait -= dt) <= 0) call(s);
+    }
+    for (const v of [...visits]){
+      const A = v.A, p = v.s.m.position;
+      if (v.state === 'in'){
+        if (flyStep(A, dt, true)){ v.state = 'eat'; A.fly = 0; A.b.root.position.y = 0;
+          A.b.root.rotation.y = Math.atan2(p.x - A.b.root.position.x, p.z - A.b.root.position.z); }
+      } else if (v.state === 'eat'){
+        v.t += dt; A.peck = Math.abs(Math.sin(v.t*Math.PI*2.4));
+        if (v.t > .5) v.s.m.scale.setScalar(Math.max(.01, 1 - (v.t - .5)/.75));
+        if (v.t >= 1.25){ A.peck = 0; rt.group.remove(v.s.m); seeds.splice(seeds.indexOf(v.s), 1); v.state = 'linger'; v.t = 0; }
+      } else if (v.state === 'linger'){
+        v.t += dt;
+        if (Math.random() < dt*1.5) A.headGoal = (Math.random() - .5)*1.4;
+        A.headYaw += (A.headGoal - A.headYaw)*Math.min(1, dt*6);
+        if (v.t > 1.6){ v.state = 'out'; flyTo(A, A.b.root.position, skyPoint()); }
+      } else if (flyStep(A, dt, false)){ removeActor(A); visits.splice(visits.indexOf(v), 1); continue; }
+      applyPose(A);
+    }
+    r.render(sc, cam);
+  })(last);
+  return {
+    stop(){ alive = false; removeEventListener('resize', size); r.dispose(); r.forceContextLoss?.(); },
+    status: () => ({pool, seeds:seeds.length, visits:visits.map(v => v.A.id + ':' + v.state)}),  // for console checks
+  };
+})();
 function closeTitle(){
   try { localStorage.setItem(VISITED_KEY, '1'); } catch {}
   $('title').classList.add('leaving');
-  setTimeout(() => $('title').remove(), 650);
+  setTimeout(() => { titleFx.stop(); $('title').remove(); }, 650);
 }
 $('startBtn').onclick = closeTitle;
 const openWarn = () => { $('warnBack').hidden = false; $('warnCancel').focus(); };
