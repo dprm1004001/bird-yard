@@ -283,7 +283,7 @@ body[data-place="island"] .stats{color:#e3f3f6}
 </aside>
 <aside class="sheet" id="achSheet" aria-label="업적">
   <header><h2>업적</h2><button class="x" data-close aria-label="닫기">×</button></header>
-  <div class="sub">업적을 달성하면 베리 마당이 넓어지고, 새로운 새가 찾아와요.</div>
+  <div class="sub">장소마다 처음엔 새 두 마리만 찾아와요. 업적을 달성할 때마다 새로운 새가 하나씩 찾아와요.</div>
   <div class="scroll">
     <div class="list" id="ach"></div>
     <div class="reset" id="reset"></div>
@@ -522,21 +522,68 @@ if (S.dropped > 0) S.tried.yard = true;  // saves from before places existed
 let saveTimer = 0;
 function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} }, 300); }
 
-// ---------- achievements: each one grows the yard and/or invites a species ----------
+// ---------- achievements ----------
+// Each place opens with two base birds only. The rest arrive one by one as that place's achievements are done:
+// the base birds visiting often, items placed there, food eaten there, more items. Every place ends with a "도감 완성" bonus.
+const BASE = {yard:['robin','wren'], pond:['duck','duckf'], plaza:['pigeon','sparrow'], river:['wagtail','plover'], forest:['jay','woodpecker'], island:['seagull','tailgull']};
+const visitsOf = ids => ids.reduce((n, k) => n + (S.seen[k]?.visits || 0), 0);
+const eatenAt = pid => PLACES[pid].species.reduce((n, k) => n + (S.seen[k]?.eaten || 0), 0);
+const itemsAt = pid => (S.items[pid] || []).length;
+const spName = k => SPECIES[k].name;
+// 이/가 after a Korean word, chosen by whether its last syllable ends in a consonant
+const iga = w => { const c = w.charCodeAt(w.length - 1) - 0xac00; return w + (c >= 0 && c < 11172 && c % 28 ? '이' : '가'); };
+// [place, id, name, how, goal, the species it brings]; how: 'visits' of the base birds, 'items' placed there, 'fed' food eaten there
+const CHAIN = [
+  ['yard',   'yard-regular', '단골 손님',     'visits', 10, 'bullfinch'],
+  ['yard',   'yard-deco',    '마당 꾸미기',   'items',   2, 'magpie'],
+  ['pond',   'pond-regular', '연못 단골',     'visits', 12, 'spotbill'],
+  ['pond',   'pond-deco',    '연못 꾸미기',   'items',   2, 'redstart'],
+  ['pond',   'pond-fed',     '빵가루 잔치',   'fed',    40, 'reedwarbler'],
+  ['pond',   'pond-deco2',   '아늑한 연못',   'items',   4, 'godwit'],
+  ['plaza',  'plaza-regular','광장 단골',     'visits', 12, 'tit'],
+  ['plaza',  'plaza-deco',   '광장 꾸미기',   'items',   2, 'bulbul'],
+  ['plaza',  'plaza-fed',    '과자 부스러기', 'fed',    40, 'crow'],
+  ['plaza',  'plaza-deco2',  '북적이는 광장', 'items',   4, 'falcon'],
+  ['river',  'river-regular','강가 단골',     'visits', 12, 'heron'],
+  ['river',  'river-deco',   '강가 꾸미기',   'items',   2, 'egret'],
+  ['river',  'river-fed',    '낟알 한가득',   'fed',    40, 'kingfisher'],
+  ['river',  'river-deco2',  '맑은 물가',     'items',   4, 'spoonbill'],
+  ['forest', 'forest-regular','숲 단골',      'visits', 12, 'nightjar'],
+  ['forest', 'forest-deco',  '숲 꾸미기',     'items',   2, 'uralowl'],
+  ['forest', 'forest-fed',   '솔방울 만찬',   'fed',    40, 'barnowl'],
+  ['forest', 'forest-deco2', '깊은 숲',       'items',   4, 'owl'],
+  ['island', 'island-regular','섬 단골',      'visits', 12, 'murrelet'],
+  ['island', 'island-deco',  '섬 꾸미기',     'items',   2, 'cormorant'],
+  ['island', 'island-fed',   '코코넛 파티',   'fed',    40, 'pelican'],
+  ['island', 'island-deco2', '낙원의 섬',     'items',   4, 'flamingo'],
+].map(([place, id, name, how, goal, unlocks]) => ({place, id, name, goal, unlocks, reward:`${iga(spName(unlocks))} 찾아올 수 있어요`,
+  desc: how === 'visits' ? `${iga(BASE[place].map(spName).join('·'))} 합쳐서 ${goal}번 찾아오기`
+      : how === 'items' ? `${PLACES[place].name}에 상점 아이템 ${goal}개 놓기`
+      : `${PLACES[place].name}에서 새들이 먹이 ${goal}개 먹기`,
+  cur: how === 'visits' ? () => visitsOf(BASE[place]) : how === 'items' ? () => itemsAt(place) : () => eatenAt(place)}));
+// meeting every regular bird of a place (secret ones don't count)
+const DEX_DONE = PLACE_ORDER.map(place => {
+  const list = PLACES[place].species.filter(k => !SPECIES[k].secret);
+  return {place, id:`${place}-dex`, name:`${PLACES[place].name} 도감 완성`, desc:`${PLACES[place].name}의 새 ${list.length}종 모두 만나기`,
+    cur:() => list.filter(k => S.seen[k]).length, goal:list.length, reward:'깃털 30개', feathers:30};
+});
 const ACH = [
-  {id:'first',   name:'첫 손님',     desc:'새에게 먹이 1개 먹이기',       cur:() => S.eaten,    goal:1,  reward:'까치가 소문을 듣고 찾아와요',          unlocks:'magpie'},
-  {id:'shake',   name:'열매 비',     desc:'먹이 15개 떨어뜨리기',         cur:() => S.dropped,  goal:15, reward:'덤불이 자라요 · 굴뚝새가 올 수 있어요',  unlocks:'wren', element:'bush'},
-  {id:'crowd',   name:'북적북적',    desc:'새 3마리를 한꺼번에 모으기',    cur:() => S.maxCrowd, goal:3,  reward:'베리나무가 한 그루 더 · 멋쟁이새가 올 수 있어요', unlocks:'bullfinch', element:'tree2'},
-  {id:'regular', name:'단골 마당',   desc:'먹이 40개 먹이기',             cur:() => S.eaten,    goal:40, reward:'베리 마당에 작은 물그릇이 생겨요', element:'bowl'},
-  {id:'dex',     name:'작은 새 도감', desc:'작은 새 4종 모두 만나기',       cur:() => SMALL4.filter(k => S.seen[k]).length, goal:4, reward:'도감 완성 도장'},
+  {place:'yard', id:'first',   name:'첫 손님',     desc:'새에게 먹이 1개 먹이기',       cur:() => S.eaten,    goal:1,  reward:'깃털 5개', feathers:5},
+  {place:'yard', id:'shake',   name:'열매 비',     desc:'먹이 15개 떨어뜨리기',         cur:() => S.dropped,  goal:15, reward:'베리 마당에 덤불이 자라요', element:'bush'},
+  {place:'yard', id:'crowd',   name:'북적북적',    desc:'새 3마리를 한꺼번에 모으기',    cur:() => S.maxCrowd, goal:3,  reward:'베리나무가 한 그루 더 자라요', element:'tree2'},
+  {place:'yard', id:'regular', name:'단골 마당',   desc:'먹이 40개 먹이기',             cur:() => S.eaten,    goal:40, reward:'베리 마당에 작은 물그릇이 생겨요', element:'bowl'},
+  ...CHAIN, ...DEX_DONE,
+  {place:'etc', id:'dex',     name:'작은 새 도감', desc:'작은 새 4종 모두 만나기',       cur:() => SMALL4.filter(k => S.seen[k]).length, goal:4, reward:'도감 완성 도장'},
   // secret: shown as ??? until done. Tap the water at the pond or river until a fish leaps out
-  {id:'fish',    name:'첨벙! 물고기', desc:'물가를 톡 쳐서 물고기 만나기',  cur:() => S.fish || 0, goal:1, reward:'깃털 50개', feathers:50, secret:true},
-];
+  {place:'etc', id:'fish',    name:'첨벙! 물고기', desc:'물가를 톡 쳐서 물고기 만나기',  cur:() => S.fish || 0, goal:1, reward:'깃털 50개', feathers:50, secret:true},
+].sort((a, b) => (PLACE_ORDER.indexOf(a.place) + 1 || 99) - (PLACE_ORDER.indexOf(b.place) + 1 || 99));
 const done = id => S.ach.includes(id);
 const hasElement = el => ACH.some(a => a.element === el && done(a.id));
-const poolFor = pid => pid === 'yard'
-  ? ['robin', ...ACH.filter(a => a.unlocks && done(a.id)).map(a => a.unlocks)]
-  : PLACES[pid].species.filter(k => !SPECIES[k].needsHidden || S.hidden[SPECIES[k].needsHidden]);
+// the achievement that brings a species (none for base birds and the bat)
+const unlockerOf = k => CHAIN.find(a => a.unlocks === k);
+const poolFor = pid => PLACES[pid].species.filter(k =>
+  (BASE[pid].includes(k) || (unlockerOf(k) && done(unlockerOf(k).id)) || SPECIES[k].needsHidden) &&
+  (!SPECIES[k].needsHidden || S.hidden[SPECIES[k].needsHidden]));
 
 // ======================================================================
 //  Geometry helpers
@@ -2599,7 +2646,7 @@ function buyItem(kind){
   toast(`${it.name} 놓음`, `${PLACES[cur].name}에 ${it.name}이(가) 생겼어요`, true);
   if (cur === 'yard') toast('베리 마당이 더 푸르러졌어요', S.items.yard.length >= 3 ? '풀이 자라고 꽃이 피고, 나비가 날아와요' : '풀이 자라고 꽃이 한 송이씩 피어나요');
   if (STAGE_TOAST[cur]) toast(`${PLACES[cur].name}이(가) 꾸며졌어요`, STAGE_TOAST[cur](Math.min(5, S.items[cur].length)));
-  checkHiddenUnlock(cur);
+  checkHiddenUnlock(cur); checkAch();
   if (kind === 'cleaner' && !S.seen.plover){
     S.seen.plover = {visits:0, eaten:0}; save();
     toast('새로운 새 · 이집트물떼새', '도감에 등록됐어요', true);
@@ -3628,10 +3675,10 @@ function toast(title, sub, isNew){
   el.append(s, p); $('toasts').append(el);
   setTimeout(() => el.remove(), 3400);
 }
-function checkAch(){
+function checkAch(quiet){
   for (const a of ACH){
     if (done(a.id) || a.cur() < a.goal) continue;
-    S.ach.push(a.id); toast(`업적 달성 · ${a.name}`, a.reward);
+    S.ach.push(a.id); if (!quiet) toast(`업적 달성 · ${a.name}`, a.reward, !!a.unlocks);
     if (a.feathers){ S.feathers += a.feathers; updateHUD(); }
     if (a.element) addYardElement(a.element, true);
     save();
@@ -3674,7 +3721,8 @@ function renderDex(){
       const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = s ? sp.name : '???';
       const meta = document.createElement('div'); meta.className = 'meta';
       meta.textContent = s ? `찾아온 횟수 ${s.visits} · 먹은 먹이 ${s.eaten}`
-        : sp.secret ? '비밀 도감이에요.' : S.places.includes(pid) ? sp.hint : `${PLACES[pid].name}을(를) 열면 만날 수 있어요.`;
+        : sp.secret ? '비밀 도감이에요.' : !S.places.includes(pid) ? `${PLACES[pid].name}을(를) 열면 만날 수 있어요.`
+        : unlockerOf(id) && !done(unlockerOf(id).id) ? `🔒 업적 '${unlockerOf(id).name}' 달성 시 찾아와요 (${unlockerOf(id).desc})` : sp.hint;
       c.append(img, no, nm);
       if (s && sp.note){ const nt = document.createElement('div'); nt.className = 'note'; nt.textContent = sp.note; c.append(nt); }
       c.append(meta); grid.append(c);
@@ -3683,7 +3731,12 @@ function renderDex(){
 }
 function renderAch(){
   const box = $('ach'); box.replaceChildren();
+  let group = null;
   for (const a of ACH){
+    if (a.place !== group){
+      group = a.place;
+      const h = document.createElement('div'); h.className = 'dexsec'; h.textContent = PLACES[group]?.name || '그 밖의 업적'; box.append(h);
+    }
     const v = Math.min(a.cur(), a.goal), ok = done(a.id), r = document.createElement('div');
     r.className = 'row' + (ok ? ' done' : '');
     r.innerHTML = `<div class="top"><span class="nm"></span><span class="ct"></span></div><div class="ds"></div><div class="bar"><i></i></div><div class="rw"></div>`;
@@ -3756,7 +3809,7 @@ function unlockPlace(pid){
   const pl = PLACES[pid];
   if (S.places.includes(pid) || S.feathers < pl.cost) return;
   S.feathers -= pl.cost; S.places.push(pid); save();
-  toast(`새 장소 · ${pl.name}`, `${pl.species.filter(k => !SPECIES[k].secret).map(k => SPECIES[k].name).join(', ')}이(가) 찾아올지도 몰라요`, true);
+  toast(`새 장소 · ${pl.name}`, `${iga(BASE[pid].map(spName).join(', '))} 먼저 찾아와요. 업적을 달성하면 더 많은 새가 와요`, true);
   switchPlace(pid);
 }
 function goPlace(pid){
@@ -3852,7 +3905,7 @@ const clock = new THREE.Clock();
 // ---------- ambient sound per place: a looping bed that fades in while you're there and out when you leave ----------
 // Browsers only allow sound after the player's first tap, so nothing plays until then.
 // beds sit at .15; the plaza's recording is quiet, so it gets .3; the sea (.1) and above all the river's stream (.04) are loud recordings
-const AMBIENT = {yard:{src:'sounds/yard-spring-noon.mp3', vol:.15}, pond:{src:'sounds/pond-spring.mp3', vol:.15}, plaza:{src:'sounds/plaza-town-square.mp3', vol:.3}, forest:{src:'sounds/forest-night-crickets.mp3', vol:.15}, island:{src:'sounds/sea-seagull.mp3', vol:.1},
+const AMBIENT = {yard:{src:'sounds/yard-spring-noon.mp3', vol:.11}, pond:{src:'sounds/pond-spring.mp3', vol:.15}, plaza:{src:'sounds/plaza-town-square.mp3', vol:.3}, forest:{src:'sounds/forest-night-crickets.mp3', vol:.15}, island:{src:'sounds/sea-seagull.mp3', vol:.1},
   // a place can have several beds playing together: the river's stream and its birdsong
   river:[{src:'sounds/river-forest-stream.mp3', vol:.04}, {src:'sounds/river-bird-chirp.mp3', vol:.15}]};
 const BEDS = Object.entries(AMBIENT).flatMap(([pid, v]) => [].concat(v).map((b, i) => ({...b, pid, key:i ? pid + i : pid})));
@@ -3982,6 +4035,7 @@ yardDecor.update(0, true); pondDecor.update(0, true); plazaDecor.update(0, true)
 for (const pid in HIDDEN) if (S.hidden[pid]) placeHidden(pid, false);
 P.group.visible = true; applyEnv(cur);
 resetButton(); makePortraits(); showHint(); updateHUD(); resize(); frame();
+checkAch(true);  // older saves catch up on achievements quietly (no burst of toasts)
 for (const pid in HIDDEN) checkHiddenUnlock(pid);  // saves that already qualify get the announcement once
 
 // ---------- title screen ----------

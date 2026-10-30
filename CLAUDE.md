@@ -161,6 +161,29 @@ Hidden objects (`HIDDEN`):
     - `crown`: a flower ring on the head.
     - `hula`: a leaf fringe round the hips.
 
+## Achievements and the bird unlock chain
+
+The user wants achievements tied to the encyclopedia: a place never opens with all its birds.
+- Each place starts with two fixed base birds (`BASE`): yard 울새·굴뚝새, pond 청둥오리·청둥오리 암컷, plaza 비둘기·참새, river 백할미새·이집트물떼새, forest 어치·오색딱따구리, island 갈매기·괭이갈매기.
+- Every other bird is brought by one achievement in `CHAIN`, in this order per place:
+  1. The base birds visit N times between them (10 in the yard, 12 elsewhere).
+  2. 2 shop items are placed there.
+  3. Birds eat 40 food there.
+  4. 4 shop items are placed there.
+  - The yard has only the first two steps: 멋쟁이새 for visits, 까치 for 2 items. That was the user's own example.
+- `poolFor` only spawns base birds, birds whose unlocking achievement is done, and the bat (gated by its hidden object).
+- Each place also has a "도감 완성" achievement (`DEX_DONE`, 30 feathers).
+- The old yard achievements are kept, but they no longer bring birds:
+  - 첫 손님: 5 feathers
+  - 열매 비: bush
+  - 북적북적: second tree
+  - 단골 마당: bowl
+- 작은 새 도감 and the secret fish achievement sit under "그 밖의 업적".
+- The achievement sheet is grouped by place.
+- A locked dex card shows which achievement brings that bird.
+- Old saves catch up quietly at boot (`checkAch(true)`).
+- `iga` picks 이/가 for generated texts.
+
 ## Hidden motion: the dance
 
 - `startDance(rt, len)` makes every bird in the place dance in sync. That includes birds standing, walking, eating or perched, and an idle cleaner. Flying and floating birds don't join.
