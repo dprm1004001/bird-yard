@@ -101,7 +101,13 @@ body[data-place="forest"] .stats,body[data-place="forest"] .hint{color:#bcaebf}
 /* the island sits in a blue sea, so its HUD text turns light too */
 body[data-place="island"] .brand{color:#f4fbfc}
 body[data-place="island"] .stats{color:#e3f3f6}
-.clean{background:#efece5;border-color:#d4cfc4}
+/* right-hand stack above ▶: the dance toggle, then clean-up */
+.side-row{flex-direction:column;align-items:flex-end;gap:8px}
+/* clean-up: grey and inert while the floor is clean, a soft red once it needs doing */
+.clean{background:#efece5;border-color:#d4cfc4;color:#9a958b}
+.clean:disabled{cursor:default;box-shadow:none}
+.clean.on{background:#fbe4e0;border-color:#eab0a6;color:#b4453a}
+.dance[aria-pressed="true"]{background:#efe6fb;border-color:#cbb6ea;color:#6a46a8}
 .clean[hidden]{display:none!important}
 
 .hint{position:fixed;z-index:4;left:50%;bottom:calc(132px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
@@ -284,9 +290,12 @@ body[data-place="island"] .stats{color:#e3f3f6}
     <ul><li><a href="https://youtu.be/T24rF_x0TmQ?si=CeuPhV-XZtRpx5Xm" target="_blank" rel="noopener">https://youtu.be/T24rF_x0TmQ</a></li></ul>
   </div>
 </div>
-<!-- bottom stack, top to bottom: clean-up, place arrows, menu -->
+<!-- bottom stack, top to bottom: dance + clean-up (right), place arrows, menu -->
 <div class="hud bottom">
-  <div class="brow"><button class="pill clean" id="cleanBtn" hidden>똥 치우기</button></div>
+  <div class="brow side-row">
+    <button class="pill dance" id="danceBtn" aria-pressed="false">춤추기</button>
+    <button class="pill clean" id="cleanBtn" disabled>똥 치우기</button>
+  </div>
   <div class="brow nav-row">
     <button class="nav" id="prevPlace" aria-label="이전 장소">◀</button>
     <button class="nav" id="nextPlace" aria-label="다음 장소">▶</button>
@@ -1258,6 +1267,7 @@ function makeCleaner(rt, x, z){
 const SCRUB_R = .55;  // radius one scrub clears around its target stain
 function updateCleaner(rt, dt){
   const C = rt.cleaner; if (!C) return;
+  if (danceMode && rt === P && C.state === 'idle' && !(C.dance > 0)){ C.dance = C.danceLen = 1e6; C.hop = null; C.b.root.position.y = 0; }
   if (C.dance > 0){ C.dance -= dt; applyPose(C); return; }
   const r = C.b.root, reach = .3*BK;
   if (C.state === 'idle'){
@@ -3261,6 +3271,11 @@ function checkStuck(B, dt, moving, dest){
 }
 function updateBird(B, dt){
   const r = B.b.root, rt = B.rt;
+  // dance mode: birds that land or wake up join in too (floating birds stay out)
+  if (danceMode && rt === P && !(B.dance > 0) && B.state !== 'in' && B.state !== 'out' && B.state !== 'skip' &&
+      !(B.state === 'rest' && REST[B.restSpot.kind].sit === 'float')){
+    B.dance = B.danceLen = 1e6; B.hop = null; B.peck = 0; if (B.state !== 'rest') r.position.y = 0;
+  }
   // dancing birds stand still and do nothing else until the dance ends
   if (B.dance > 0){ B.dance -= dt; applyPose(B); return; }
   // the pumpkin siren: everyone on the ground stops dead where they are
@@ -3762,6 +3777,16 @@ function switchPlace(pid){
 $('prevPlace').onclick = () => stepPlace(-1);
 $('nextPlace').onclick = () => stepPlace(1);
 $('cleanBtn').onclick = cleanUp;
+// dance toggle: every bird on the ground (and the idle cleaner) stops what it's doing and dances until 그만 추기
+let danceMode = false;
+function setDanceMode(on){
+  danceMode = on;
+  const b = $('danceBtn'); b.setAttribute('aria-pressed', on); b.textContent = on ? '그만 추기' : '춤추기';
+  if (on){ startDance(P, 1e6); return; }
+  // ease everyone out of the dance over 0.4 s
+  for (const B of [...P.birds, P.cleaner].filter(Boolean)) if (B.dance > .4) B.dance = .4;
+}
+$('danceBtn').onclick = () => setDanceMode(!danceMode);
 $('photoBtn').onclick = enterPhoto;
 $('soundBtn').onclick = () => setMuted(!muted);
 $('photoClose').onclick = exitPhoto;
@@ -3786,7 +3811,7 @@ function updateHUD(){
   $('dexCount').textContent = `${ALL_SPECIES.filter(k => S.seen[k]).length}/${ALL_SPECIES.length}`;
   $('achCount').textContent = `${S.ach.length}/${ACH.length}`;
   const d = dirtOf(cur);
-  $('cleanBtn').hidden = d < .1;
+  $('cleanBtn').disabled = d < .1; $('cleanBtn').classList.toggle('on', d >= .1);
   $('cleanBtn').textContent = d >= .7 ? '똥 치우기 !' : '똥 치우기';
   if ($('achSheet').classList.contains('open')) renderAch();
   if ($('dexSheet').classList.contains('open')) renderDex();
@@ -4137,7 +4162,7 @@ function frame(){
   updateFeathers(rt, dt);
 
   // hidden motion: now and then (about once every three minutes with a crowd) everyone breaks into the dance
-  if (rt.birds.filter(onGround).length >= 3 && !rt.birds.some(B => B.dance > 0) && Math.random() < dt/180) startDance(rt, 4 + Math.random()*3);
+  if (!danceMode && rt.birds.filter(onGround).length >= 3 && !rt.birds.some(B => B.dance > 0) && Math.random() < dt/180) startDance(rt, 4 + Math.random()*3);
   rt.spawnT -= dt;
   if (rt.spawnT <= 0){
     // resting birds don't count toward the cap, and free perch spots attract birds on their own

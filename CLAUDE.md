@@ -40,7 +40,9 @@ The user alternates between two machines.
 - The global bird size is `BIRD_SCALE = .3`. The user shrank it twice, so keep birds small. `BK` scales walking and reach distances to match.
 - **No chirp bubbles.** The 구구/찌찌 text was removed on request. Tapping a bird only makes it flap.
 - Poop shows as soft grey overlapping ellipses, like rain spots. Dirt slows bird visits. "똥 치우기" and the cleaner plover clear it.
-- Bottom HUD order, top to bottom: 똥 치우기 → ◀ ▶ (switch place) → the 장소/상점/도감/업적 menu, which stays on one row on phones.
+- Bottom HUD order, top to bottom: a right-hand stack (춤추기, then 똥 치우기) above ▶ → ◀ ▶ (switch place) → the 장소/상점/도감/업적 menu, which stays on one row on phones.
+  - 똥 치우기 is always shown. It is grey and disabled while the floor is clean, and turns soft red (`.on`) once dirt reaches .1.
+  - 춤추기 toggles `danceMode` (`setDanceMode`; the label becomes 그만 추기). Every grounded or perched bird and the idle cleaner dances until it's turned off. Birds that land meanwhile join in, floating birds stay out, and turning it off eases everyone out over 0.4 s. The random auto-dance is skipped while it's on.
 - Changing place (◀ ▶, 이동하기, or opening a new place) goes through `switchPlace`. It is a crossfade, as the user asked: a still of the old place (`snapshot`, background included) is laid over the screen in `#veil` (a canvas under the HUD). The place switches underneath at once, and the still fades out over 0.15 s.
 - On phones, two fingers pinch to zoom (`camD`, 3.5–11) outside photo mode too (`fingers`, `drag.pinch`). A second finger turns whatever the first finger started into a pinch, and lifting a finger out of a pinch doesn't trigger a tap.
 - Drag that starts on a food source shakes it. Drag that starts on a feather sweeps feathers. Any other drag rotates the view.
