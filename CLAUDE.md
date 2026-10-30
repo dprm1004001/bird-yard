@@ -93,9 +93,15 @@ Shop items, one of each per place:
 Hidden objects (`HIDDEN`):
 - Once all five items are placed in a place, its hidden object unlocks. It shows as "???" in the shop, with a toast and a red dot on 상점.
 - 베리 마당 (`yard`) has a small stump (`STUMP`, `placeStump`) in the open ground in front of the berry tree.
-  - Fed birds often hop onto it (`stumpSpot`, 35%) to loaf. About half of them doze off, head turned back (`B.sleeping`).
-  - Every 25–50 s a bird may fly in just to dance on it (`danceOnArrival`).
-  - Rare hidden motion: a bird stands on the stump strumming a tiny guitar with its wing (`startGuitarist`, `makeGuitar`). There is no sound yet; the user will add it later.
+  - Its top is a clean flat cut: an open bark tube plus a ring face aligned to it (`thetaStart -PI/2`), in pale-yellow growth rings.
+  - The user wants plain resting to be rare there; lying down, dancing and guitar should dominate.
+    - Fed birds hop onto it often (`stumpSpot`, 55%).
+    - 80% of them doze (`B.sleeping`). Half of those flop onto their side (`B.sleepSide`); the rest tuck their head back.
+    - Awake birds on it break into dances now and then.
+    - Every 10–18 s a bird may fly in just to dance on it (`danceOnArrival`, 80%).
+  - Hidden motion: a bird stands on the stump strumming a tiny guitar with its wing (`startGuitarist`, `makeGuitar`).
+    - Every 10 s there is a 30% chance.
+    - There is no sound yet; the user will add it later.
 - The plaza has a longboard half-pipe that birds skate on.
 - After it is bought, rare odd moments happen in the plaza: a pigeon smoking at the foot of a lamp with the cigarette held in its wing, and a bird couple kissing on the facing bench.
 - Hidden objects for pond, river, forest and island are still to be directed by the user.

@@ -1833,11 +1833,13 @@ function geoFrom(p, hex, cols){
 }
 function placeStump(rt, pop){
   const {x, z, r, h} = STUMP, g = new THREE.Group(); g.position.set(x, 0, z);
-  g.add(mesh(solid(new THREE.CylinderGeometry(r*.92, r*1.1, h, 7).translate(0, h/2, 0), '#7a5434', 950, .02)));
-  // the cut face: growth rings in two alternating woods
-  const rings = 3, faceSegs = 7;
-  g.add(mesh(skin(shape(new THREE.RingGeometry(.01, r*.9, faceSegs, rings).rotateX(-Math.PI/2).translate(0, h + .002, 0)),
-    (c,px,py,pz,f) => c.set(Math.floor(f/(faceSegs*2)) % 2 ? '#c9a06a' : '#dfbd8b'), 951)));
+  // bark: an open-topped, un-jittered tube so the cut face sits on a clean flat rim
+  g.add(mesh(solid(new THREE.CylinderGeometry(r*.92, r*1.1, h, 7, 1, true).translate(0, h/2, 0), '#7a5434', 950)));
+  // the cut face: flat pale-yellow growth rings, exactly filling the rim. thetaStart -PI/2 lines the ring's
+  // corners up with the cylinder's, so no bark wedges poke through
+  const rings = 4, faceSegs = 7;
+  g.add(mesh(skin(shape(new THREE.RingGeometry(.001, r*.92, faceSegs, rings, -Math.PI/2).rotateX(-Math.PI/2).translate(0, h, 0)),
+    (c,px,py,pz,f) => c.set(Math.floor(f/(faceSegs*2)) % 2 ? '#ecd08a' : '#f7e4a8'), 951)));
   // three stubby roots
   for (let i = 0; i < 3; i++){
     const a = i*2.1 + .4, root = mesh(solid(new THREE.ConeGeometry(.045, .2, 3).rotateZ(Math.PI/2).translate(.1, .03, 0), '#6b4a33', 952 + i));
@@ -2091,13 +2093,13 @@ function updateHidden(rt, dt){
     // now and then a bird comes over just to dance on the stump
     rt.stumpDanceT = (rt.stumpDanceT ?? 20) - dt;
     if (rt.stumpDanceT <= 0){
-      rt.stumpDanceT = 25 + Math.random()*25;
+      rt.stumpDanceT = 10 + Math.random()*8;
       const sp = rt.stumpSpots.find(s => !s.occupant);
-      if (sp && Math.random() < .5){ spawnBird(rt, sp); const B = rt.birds[rt.birds.length - 1]; if (B?.restSpot === sp) B.danceOnArrival = true; }
+      if (sp && Math.random() < .8){ spawnBird(rt, sp); const B = rt.birds[rt.birds.length - 1]; if (B?.restSpot === sp) B.danceOnArrival = true; }
     }
-    // every 10 s, a small (8%) chance of a guitar set on the stump
+    // every 10 s, a 30% chance of a guitar set on the stump
     rt.oddT = (rt.oddT ?? 10) - dt;
-    if (rt.oddT <= 0){ rt.oddT = 10; if (Math.random() < .08 && !rt.extras.length) startGuitarist(rt); }
+    if (rt.oddT <= 0){ rt.oddT = 10; if (Math.random() < .3 && !rt.extras.length) startGuitarist(rt); }
   } else if (rt.hiddenObj){
     rt.skateT = (rt.skateT ?? 3) - dt;
     if (rt.skateT <= 0){ rt.skateT = 14 + Math.random()*10; startSkater(rt); }
@@ -2491,7 +2493,7 @@ function leave(B){
   if (B.restSpot){ B.restSpot.occupant = null; B.restSpot = null; }
   setSit(B, null); B.b.root.rotation.z = 0;
   B.b.legs.forEach(l => { l.scale.y = 1; });  // unfold a wading flamingo's raised leg
-  B.sleeping = false; B.danceOnArrival = false;
+  B.sleeping = false; B.sleepSide = false; B.danceOnArrival = false;
 }
 // how each kind of resting spot behaves; sit = how the bird sits there (legs tucked away)
 const REST = {
@@ -2505,7 +2507,7 @@ const REST = {
 };
 // with the stump bought, a fed bird often hops up onto it to rest
 function stumpSpot(B, rt){
-  if (!rt.stumpSpots || Math.random() >= .35) return null;
+  if (!rt.stumpSpots || Math.random() >= .55) return null;
   const f = rt.stumpSpots.filter(s => !s.occupant);
   return f.length ? f[Math.floor(Math.random()*f.length)] : null;
 }
@@ -2606,7 +2608,10 @@ function updateBird(B, dt){
             if (B.danceOnArrival){
               // came to dance: stand up on the stump and dance a while, then rest a moment and go
               setSit(B, null); B.dance = B.danceLen = 5 + Math.random()*2; B.restT = 3;
-            } else B.sleeping = Math.random() < .55;  // otherwise often nods off, head tucked back
+            } else {
+              B.sleeping = Math.random() < .8;   // most nod off...
+              B.sleepSide = B.sleeping && Math.random() < .5;  // ...and half of those flop over onto their side
+            }
           }
         } else { r.position.y = 0; B.state = 'walk'; }
       }
@@ -2628,7 +2633,10 @@ function updateBird(B, dt){
       r.rotation.z = Math.sin(B.restClock*1.7)*.04;
     } else if ((B.poopT -= dt) <= 0){ poop(B); B.poopT = 8 + Math.random()*10; }
     if ((B.featherT -= dt) <= 0){ dropFeather(rt, r.position); B.featherT = R.feather + Math.random()*4; }
-    if (B.sleeping){ B.headGoal = 2.5; B.peck = .22; }   // dozing: head turned back and tucked down
+    if (B.sleepSide){ B.headGoal = 0; B.peck = .1; r.rotation.z = 1.2 + Math.sin(B.restClock*1.2)*.04; }  // lying on its side, breathing
+    else if (B.sleeping){ B.headGoal = 2.5; B.peck = .22; }   // dozing: head turned back and tucked down
+    // an awake bird on the stump sometimes just gets up and dances
+    else if (kind === 'stump' && Math.random() < dt*.08){ setSit(B, null); B.dance = B.danceLen = 4 + Math.random()*2; }
     else if (Math.random() < dt*.6) B.headGoal = (Math.random() - .5)*1.6;
     if ((B.restT -= dt) <= 0) leave(B);
   } else {
