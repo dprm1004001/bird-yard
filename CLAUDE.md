@@ -125,7 +125,11 @@ Hidden objects (`HIDDEN`):
     - The rest dash (`B.rush`) to the bank (`tocool`), then hop in and float.
     - The others get out while only a little pink.
   - Out of the spring, heat fades slowly back to the bird's own colours (about 16 s floating on the river, 22 s elsewhere). A hot bird puffs steam.
-- Hidden objects for forest and island are still to be directed by the user.
+- 어두운 숲 (`forest`) has a giant carved pumpkin (`PUMPKIN`, `placePumpkin`) at the back right. The user had the two pines there removed as if they never existed.
+  - It is a ribbed orange pumpkin with a stem and leaf. Its carved face (triangle eyes, nose, jagged grin) is flat glowing shapes laid onto the front (`pumpkinGlow`), turned to face the usual view.
+  - A warm orange `PointLight` in front spills light onto the floor.
+  - So far it is only the object, placed for a position check. Bird behaviour around it is still to be directed.
+- The island's hidden object is still to be directed by the user.
 
 ## Hidden motion: the dance
 

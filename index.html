@@ -435,6 +435,8 @@ const STUMP = {x:0, z:2.25, r:.24, h:.2};
 const PICNIC = {x:-.35, z:2.1, w:1.2, d:.9, rot:-.22};
 // 맑은 강가's little hot spring, in the open grass at the front left
 const SPRING = {x:-.85, z:1.9, r:.5};
+// 어두운 숲's giant carved pumpkin, back right where two pines used to stand
+const PUMPKIN = {x:1.85, z:-1.95, r:.42, h:.62};
 const POND_W = {x:1.5, z:-1.1, rx:2.0, rz:1.45};  // the pond's water ellipse
 const ITEM_SPOTS = {
   yard:  {perch:[-1.3,1.4], feeder:[.8,1.6],  house:[2.1,-.4],  collector:[-2.1,.4], cleaner:[-.6,2.0]},
@@ -946,7 +948,7 @@ function buildForest(rt){
   flatten(floor.geometry);
   floor.position.y = .002; floor.receiveShadow = true; g.add(floor);
   // pines mostly behind and beside the clearing so they don't block the starting view
-  for (const [x, z, s] of [[-2.4,-1.6,1.1],[2.5,-1.4,1.2],[-2.9,.2,.9],[3.3,-.1,.95],[-1.3,-2.6,1.3],[1.2,-2.7,1.15],[0,-3.2,1.4],[-3.5,1.7,.8]]){
+  for (const [x, z, s] of [[-2.4,-1.6,1.1],[-2.9,.2,.9],[3.3,-.1,.95],[-1.3,-2.6,1.3],[0,-3.2,1.4],[-3.5,1.7,.8]]){
     const t = new THREE.Group(); t.position.set(x, 0, z); t.rotation.y = rnd(x*7 + z)*6;
     for (const geo of pineGeo(2.2*s, s)) t.add(mesh(geo));
     g.add(t); addObstacle(rt, x, z, .55*s);
@@ -1524,7 +1526,7 @@ const riverDecor = (() => {
 //   more of each with every item after that ----------
 const forestDecor = (() => {
   const g = new THREE.Group(); RT.forest.group.add(g);
-  const avoid = {obstacles:[...RT.forest.obstacles.map(o => ({x:o.x, z:o.z, r:o.r + .12})),
+  const avoid = {obstacles:[...RT.forest.obstacles.map(o => ({x:o.x, z:o.z, r:o.r + .12})), {x:PUMPKIN.x, z:PUMPKIN.z, r:PUMPKIN.r + .2},
     ...Object.values(ITEM_SPOTS.forest).map(([x, z]) => ({x, z, r:.38}))]};
   const floorSpot = (i, salt, rMax = 3.4) => {
     const a = rnd(i*12.9 + salt)*Math.PI*2, d = .75 + Math.sqrt(rnd(i*7.3 + salt*3))*(rMax - .75);
@@ -1549,7 +1551,7 @@ const forestDecor = (() => {
     return m;
   };
   // clusters of three, nearest the clearing first: stump, log, the middle pine, then the pines round the edge
-  const ANCHORS = [[-1.4,1.0,.3],[1.3,.9,.3],[0,0,.68],[-2.4,-1.6,.66],[2.5,-1.4,.72],[-2.9,.2,.55],[3.3,-.1,.58],[-1.3,-2.6,.78]];
+  const ANCHORS = [[-1.4,1.0,.3],[1.3,.9,.3],[0,0,.68],[-2.4,-1.6,.66],[-2.9,.2,.55],[3.3,-.1,.58],[-1.3,-2.6,.78]];
   const shrooms = [];
   ANCHORS.forEach(([x, z, r], ci) => {
     const a0 = rnd(ci*9.1)*Math.PI*2;
@@ -1835,6 +1837,8 @@ const HIDDEN = {
           desc:'새들이 올라와 쉬거나 꾸벅꾸벅 잠을 자는 작은 그루터기예요. 가끔 그루터기 위에서 춤을 추거나, 작은 기타를 치는 새가 나타나요.'},
   river: {name:'작은 온천', cost:300,
           desc:'검은 바위로 둘러싼 뽀얀 하늘색 온천이에요. 김이 펄펄 나요. 새들이 물을 튀기며 목욕하거나, 머리에 작은 수건을 얹고 푹 익을 때까지 몸을 담가요.'},
+  forest:{name:'자이언트 호박', cost:300,
+          desc:'숲 안쪽에 놓인 커다란 조각 호박이에요. 깎아낸 눈과 입 사이로 노란 불빛이 새어 나와요.'},
   pond:  {name:'피크닉 돗자리', cost:300,
           desc:'연빨강·하양 체크 돗자리에 닫힌 바구니와 핫도그 접시가 놓여 있어요. 새들이 핫도그를 쪼아 먹거나, 나란히 앉아 캔맥주를 마셔요. 너무 마시면… 비틀비틀.'},
   plaza: {name:'롱보드 하프파이프', cost:300,
@@ -1961,8 +1965,51 @@ function updateSteam(rt, dt){
     s.m.material.opacity = .42*Math.sin(k*Math.PI)*(1 - k*.4);
   }
 }
+// giant carved pumpkin (forest hidden object): a ribbed orange pumpkin with a glowing carved face and a warm light inside
+const pumpkinGlow = new THREE.MeshBasicMaterial({color:0xffd060});
+function placePumpkin(rt, pop){
+  const {x, z, r, h} = PUMPKIN, g = new THREE.Group(); g.position.set(x, 0, z);
+  const RIBS = 10, ry = h/2;
+  // ribbed body: every other column of vertices pulled in, so the pumpkin has soft lobes
+  const body = new THREE.SphereGeometry(1, RIBS*2, 7), bp = body.attributes.position;
+  for (let i = 0; i < bp.count; i++){
+    const vx = bp.getX(i), vy = bp.getY(i), vz = bp.getZ(i), a = Math.atan2(vz, vx);
+    const k = (1 - .08*Math.abs(Math.sin(a*RIBS/2)))*(1 - .12*vy*vy);
+    bp.setXYZ(i, vx*r*k, vy*ry*(vy < 0 ? .85 : 1) + ry*.85, vz*r*k);
+  }
+  g.add(mesh(skin(body.toNonIndexed(), (c,px,py,pz) => {
+    const a = Math.atan2(pz, px);
+    c.set(Math.abs(Math.sin(a*RIBS/2)) > .5 ? '#d9661f' : '#ec8a2f').lerp(col('#b5521a'), ss(.6, 0, py));
+  }, 1020)));
+  g.add(mesh(solid(new THREE.CylinderGeometry(.035, .055, .14, 5).rotateZ(.25).translate(.015, h + .03, 0), '#5e6b2f', 1021)));
+  g.add(mesh(solid(new THREE.ConeGeometry(.06, .12, 3).rotateZ(1.3).translate(.08, h - .005, .03).scale(1, .35, 1), '#4f7a33', 1022)));
+  // the carved face: flat glowing shapes laid onto the front of the body
+  const face = new THREE.Group(), cy = ry*.85;
+  const onSurface = (pts, dy) => {
+    const geo = new THREE.ShapeGeometry(new THREE.Shape(pts.map(([u, v]) => new THREE.Vector2(u, v)))), p = geo.attributes.position;
+    for (let i = 0; i < p.count; i++){
+      const u = p.getX(i), v = p.getY(i) + dy, n = Math.max(0, 1 - (u/r)**2 - (v/ry)**2);
+      p.setXYZ(i, u, v + cy, Math.sqrt(n)*r*.97 + .012);
+    }
+    face.add(new THREE.Mesh(geo, pumpkinGlow));
+  };
+  for (const s of [-1, 1]) onSurface([[s*.06, 0], [s*.17, 0], [s*.115, .1]], .07);         // triangle eyes
+  onSurface([[-.025, 0], [.025, 0], [0, .045]], 0);                                         // little nose
+  onSurface([[-.2, .02], [-.14, -.03], [-.1, -.005], [-.06, -.06], [0, -.03], [.06, -.06], [.1, -.005], [.14, -.03], [.2, .02],
+             [.12, -.1], [.04, -.12], [-.04, -.12], [-.12, -.1]].reverse(), -.06);         // jagged grin
+  g.add(face);
+  // face the usual view
+  g.rotation.y = Math.atan2(-x, 6 - z);
+  // warm light spilling out onto the forest floor
+  const lamp = new THREE.PointLight(0xffa040, 1.1, 2.6, 2); lamp.position.set(0, cy, r + .2); g.add(lamp);
+  rt.group.add(g);
+  rt.hiddenObj = {g, pumpkin:true}; rt.elements.hidden = g;
+  addObstacle(rt, x, z, r + .04, true);
+  if (pop){ g.userData.target = 1; g.scale.setScalar(.001); g.userData.pop = 0; }
+}
 function placeHidden(pid, pop){
   const rt = RT[pid]; if (rt.hiddenObj) return;
+  if (pid === 'forest') return placePumpkin(rt, pop);
   if (pid === 'yard') return placeStump(rt, pop);
   if (pid === 'river') return placeSpring(rt, pop);
   if (pid === 'pond') return placePicnic(rt, pop);
