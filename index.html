@@ -3851,8 +3851,32 @@ addEventListener('pointerdown', () => {
     const a = ambient[pid] ??= Object.assign(new Audio(AMBIENT[pid].src), {loop:true, volume:0});
     a.play().then(() => { if (a.volume <= .001) a.pause(); }).catch(() => {});
   }
+  for (const pid in CALLS){
+    const st = calls[pid] ??= {i:0, t:CALLS[pid].gaps[0], a:null, on:false}, a = st.a ??= new Audio(CALLS[pid].src);
+    a.volume = 0; a.play().then(() => { a.pause(); a.volume = CALLS[pid].vol; }).catch(() => { a.volume = CALLS[pid].vol; });
+  }
 }, {capture:true});
+// one-off calls layered over a place's bed: an owl hoots in the dark forest, very softly, after gaps of 8 s, 5 s, 13 s, then round again.
+// The clock starts over each time you arrive, and stops while muted, while the siren show runs, or before the first tap
+const CALLS = {forest:{src:'sounds/owl-hoot.mp3', vol:.08, gaps:[8, 5, 13]}};
+const calls = {};
+function updateCalls(dt){
+  for (const pid in CALLS){
+    const C = CALLS[pid], st = calls[pid] ??= {i:0, t:C.gaps[0], a:null, on:false};
+    const live = soundOK && !muted && pid === cur && !document.hidden && !document.getElementById('title') && !RT[pid].show;
+    if (!live){
+      if (st.on){ st.on = false; st.i = 0; st.t = C.gaps[0]; st.a?.pause(); }  // come back later and it starts from the first gap again
+      continue;
+    }
+    st.on = true;
+    if ((st.t -= dt) > 0) continue;
+    st.a ??= Object.assign(new Audio(C.src), {volume:C.vol});
+    st.a.currentTime = 0; st.a.play().catch(() => {});
+    st.i = (st.i + 1) % C.gaps.length; st.t = C.gaps[st.i];
+  }
+}
 function updateAmbient(dt){
+  updateCalls(dt);
   for (const pid in AMBIENT){
     // the pumpkin siren show takes over the forest's sound while it runs
     const want = soundOK && !muted && pid === cur && !document.hidden && !document.getElementById('title') && !RT[pid].show ? AMBIENT[pid].vol : 0;
