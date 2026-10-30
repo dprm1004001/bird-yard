@@ -1978,7 +1978,9 @@ function leapFish(rt, p){
 }
 function updateDrops(rt, dt){
   if (!rt.drops?.length) return;
-  rt.drops = rt.drops.filter(d => {
+  // a landing fish splashes again mid-update: those new drops go into a fresh list and are kept below
+  const current = rt.drops; rt.drops = [];
+  const kept = current.filter(d => {
     d.t += dt;
     if (d.kind === 'drop'){
       d.v.y -= 9.8*dt; d.m.position.addScaledVector(d.v, dt);
@@ -1995,6 +1997,7 @@ function updateDrops(rt, dt){
     }
     return true;
   });
+  rt.drops = kept.concat(rt.drops);
 }
 function updatePuffs(rt, dt){
   rt.puffs = rt.puffs.filter(p => {
