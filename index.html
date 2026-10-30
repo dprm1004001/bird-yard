@@ -1227,27 +1227,33 @@ const pondDecor = (() => {
     const p = waterSpot(i, 3), m = mesh(padGeo); m.castShadow = false;
     m.position.set(p.x, .009, p.z); m.rotation.y = rnd(i*13)*6; add(pads, m, .75 + rnd(i*4)*.6, i + 80);
   }
-  // pink wildflowers tucked on and around the shore rocks
+  // wildflowers tucked on and around the shore rocks: pinks, lilac and yellow, from tiny to big
   const ROCKS = [[-1.6,1.3,.16],[-1.25,.8,.14],[-.9,.3,.12]];
   const stem = solid(new THREE.CylinderGeometry(.005, .006, .1, 3).translate(0, .05, 0), '#5f9a55', 740);
-  const pinks = ['#f29ac0','#f7b8d3','#e57fae'].map((h, i) => solid(new THREE.OctahedronGeometry(.024, 0).scale(1, .55, 1).translate(0, .105, 0), h, 741 + i));
+  const wildCols = ['#f29ac0','#f7b8d3','#e57fae','#c3a6ec','#b39ae0','#f6d54a','#f2c13a'];
+  const wildHeads = wildCols.map((h, i) => solid(new THREE.OctahedronGeometry(.026, 0).scale(1, .55, 1).translate(0, .105, 0), h, 741 + i));
   const rockFlowers = [];
-  for (let i = 0; i < 18; i++){
-    const [rx, rz, rr] = ROCKS[i % 3], a = rnd(i*6.1)*Math.PI*2, onTop = i % 2 === 0, d = onTop ? rr*.4*rnd(i*2.3) : rr*(1 + rnd(i*3.9)*.5);
-    const f = new THREE.Group(); f.add(mesh(stem), mesh(pinks[i % 3]));
+  for (let i = 0; i < 24; i++){
+    const [rx, rz, rr] = ROCKS[i % 3], a = rnd(i*6.1)*Math.PI*2, onTop = i % 2 === 0, d = onTop ? rr*.4*rnd(i*2.3) : rr*(1 + rnd(i*3.9)*.6);
+    const f = new THREE.Group(); f.add(mesh(stem), mesh(wildHeads[Math.floor(rnd(i*4.7)*wildCols.length)]));
     f.position.set(rx + Math.cos(a)*d, onTop ? .065 : 0, rz + Math.sin(a)*d);
-    add(rockFlowers, f, .8 + rnd(i*8)*.5, i + 120);
+    // sizes spread widely: most small-to-medium, a few big showy ones
+    const s = .55 + rnd(i*8)**1.6*1.6;
+    add(rockFlowers, f, s, i + 120);
   }
-  // lotus: six tilted pink petals and a yellow heart, sitting on the first four pads
+  // lotus: a wide pale ring of lower petals, a pinker tilted ring above it, and a yellow heart.
+  // Sits on the first four lily pads, a good deal bigger than before.
   const petalGeo = solid(new THREE.ConeGeometry(.028, .09, 3).translate(0, .045, 0), '#f4a6c6', 750);
+  const lowPetalGeo = solid(new THREE.ConeGeometry(.034, .1, 3).scale(1, 1, .5).translate(0, .05, 0), '#f9cfe0', 752);
   const heartGeo = solid(new THREE.OctahedronGeometry(.022, 0).scale(1, .6, 1).translate(0, .03, 0), '#f2cf4a', 751);
   const lotus = [];
   for (let i = 0; i < 4; i++){
     const l = new THREE.Group();
-    for (let k = 0; k < 6; k++){ const p = mesh(petalGeo); p.rotation.set(.55, k*Math.PI/3, 0, 'YXZ'); l.add(p); }
+    for (let k = 0; k < 8; k++){ const p = mesh(lowPetalGeo); p.rotation.set(1.15, k*Math.PI/4 + Math.PI/8, 0, 'YXZ'); l.add(p); }
+    for (let k = 0; k < 6; k++){ const p = mesh(petalGeo); p.rotation.set(.55, k*Math.PI/3, 0, 'YXZ'); p.position.y = .006; l.add(p); }
     l.add(mesh(heartGeo));
     l.position.copy(pads[i].g.position).setY(.012);
-    add(lotus, l, 1, i + 160);
+    add(lotus, l, 1.6, i + 160);
   }
   let level = -1, bloomT = 0, t = 0;
   // pops each list up to n items: one at a time (gap seconds apart) or all at once
@@ -1275,7 +1281,7 @@ const pondDecor = (() => {
       // the ring closes by stage 3, laid in order around the pond
       grow(stones, Math.min(stones.length, Math.ceil(L*stones.length/3)), dt, instant, .06, st.stones);
       grow(pads, L >= 2 ? Math.min(10, (L - 1)*3) : 0, dt, instant, .6, st.pads);
-      grow(rockFlowers, L >= 3 ? (L - 2)*6 : 0, dt, instant, .5, st.flowers);
+      grow(rockFlowers, L >= 3 ? (L - 2)*8 : 0, dt, instant, .4, st.flowers);
       grow(lotus, L >= 5 ? 4 : 0, dt, instant, 1.6, st.lotus);
       // pads and lotus bob gently on the water
       pads.forEach((o, i) => { o.g.position.y = .009 + Math.sin(t*1.3 + o.ph)*.003; o.g.rotation.y += Math.sin(t*.4 + i)*.0008; });
