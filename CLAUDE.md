@@ -183,6 +183,7 @@ The user wants achievements tied to the encyclopedia: a place never opens with a
   - 북적북적: second tree
   - 단골 마당: bowl
 - "히든 업적" group: until done, the name, count and reward read ???, but the subtitle always shows the user's sly hint line in quotes (`hint`). Each pays 50 feathers. The old 작은 새 도감 achievement was removed.
+  - 공원 버스킹 (`busk`, "떠오르는 신인 뮤지션"), first in the list: tap or photograph the guitar-playing bird on the stump.
   - 월척이오! (`fish`, "이야, 여기 물고기 맛집이네"): tap the water until a fish leaps out.
   - 술이 웬수지 (`drunk`, "아저씨, 거 적당히 마시라니까!"): tap a drunk bird (`drunk >= 2`) or photograph one.
   - 과태료 10만원 (`smoke`, "흡연은 흡연구역에서만!"): tap or photograph the smoking pigeon.

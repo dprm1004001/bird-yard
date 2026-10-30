@@ -610,6 +610,7 @@ const ACH = [
   // hidden achievements: the name, count and reward read ??? until done; the subtitle (hint) is always shown as a sly nudge.
   // fish: tap the water until a fish leaps out. party: set off the pumpkin show. The rest: tap the moment or catch it in a photo (spot())
   ...[
+    ['busk',   '공원 버스킹',   '떠오르는 신인 뮤지션'],
     ['fish',   '월척이오!',     '이야, 여기 물고기 맛집이네',      () => S.fish || 0],
     ['drunk',  '술이 웬수지',   '아저씨, 거 적당히 마시라니까!'],
     ['smoke',  '과태료 10만원', '흡연은 흡연구역에서만!'],
@@ -2651,7 +2652,7 @@ function startGuitarist(rt){
   rt.extras.push({kind:'guitar', actors:[A], end:stop, update(dt){
     if (state === 'in'){
       if (flyStep(A, dt, true)){
-        state = 'play'; A.fly = 0; b.root.position.y = STUMP.h; b.root.rotation.y = .55;
+        state = 'play'; A.act = 'busk'; A.fly = 0; b.root.position.y = STUMP.h; b.root.rotation.y = .55;
         guitarMusic.currentTime = 0; guitarMusic.volume = 0; if (!muted && soundOK) guitarMusic.play().catch(() => {});
       }
       applyPose(A);
@@ -2666,7 +2667,7 @@ function startGuitarist(rt){
       b.wings[1].rotation.set(-1.55, 0, -.25);
       b.neck.rotation.x += Math.sin(life*7.5)*.12;            // nodding along
       b.torso.rotation.z = Math.sin(life*3.75)*.05;           // a little sway
-      if (life > PLAY){ state = 'out'; stop(); b.torso.rotation.z = 0; spots.forEach(s => { if (s.occupant === hold) s.occupant = null; }); flyTo(A, b.root.position, skyPoint()); }
+      if (life > PLAY){ state = 'out'; A.act = null; stop(); b.torso.rotation.z = 0; spots.forEach(s => { if (s.occupant === hold) s.occupant = null; }); flyTo(A, b.root.position, skyPoint()); }
     } else {
       if (flyStep(A, dt, false)){ removeActor(A); return false; }
       applyPose(A);
