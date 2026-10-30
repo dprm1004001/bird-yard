@@ -79,6 +79,8 @@ Each place grows decor in stages as shop items are placed there. The stage is th
   - 3+: a small waterfall pours through the gap into a pool, with foam at its foot.
   - 4+: moss caps on the rocks, and ferns.
   - 5: a rainbow in the spray.
+- forest sky and light: dusk. The renderer has `alpha:true`; places with `ENV[pid].dusk` clear to transparent, and a CSS gradient on `body[data-place="forest"]` shows behind the canvas. It is muted dark purple with a faint orange glow placed behind the treeline (upper middle of the screen).
+  - The hemisphere light's sky colour is lavender (`ENV.forest.sky`) and the sun is warm orange (`sunColor`). The floor fades from mossy green to dusk purple at the rim.
 - forest (`forestDecor`):
   - 1+: dim grass tufts.
   - 2+: mushroom clusters at the stump, the log and the pines. Red caps have white dots. There are 6 more per item.

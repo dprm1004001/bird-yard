@@ -69,8 +69,10 @@ body{background:var(--void);color:var(--ink);font-family:var(--body);overflow:hi
 .nav:active{transform:translateY(1px);box-shadow:none}
 .nav:focus-visible{outline:2px solid var(--berry);outline-offset:2px}
 /* the dark forest: HUD text sitting directly on the scene turns light */
-body[data-place="forest"] .brand{color:#e8efe8}
-body[data-place="forest"] .stats,body[data-place="forest"] .hint{color:#a9b8ac}
+/* dusk over the dark forest: muted dark purple, with a faint orange glow behind the treeline (the upper middle of the screen) */
+body[data-place="forest"]{background:linear-gradient(180deg,#272130 0%,#3b3146 16%,#634756 30%,#80594b 42%,#5a4250 56%,#342c3c 75%,#2a2432 100%)}
+body[data-place="forest"] .brand{color:#efe6ef}
+body[data-place="forest"] .stats,body[data-place="forest"] .hint{color:#bcaebf}
 /* the island sits in a blue sea, so its HUD text turns light too */
 body[data-place="island"] .brand{color:#f4fbfc}
 body[data-place="island"] .stats{color:#e3f3f6}
@@ -409,7 +411,8 @@ const PLACE_ORDER = ['yard','pond','plaza','river','forest','island'];
 // per-place light and ground colour
 const ENV = {
   yard:{bg:0xf7f7f4}, pond:{bg:0xf7f7f4}, plaza:{bg:0xf7f7f4}, river:{bg:0xf4f7f6},
-  forest:{bg:0x34423a, hemi:.62, ground:0x2b372f, sun:.58, shadow:.28},
+  // dusk in the forest: a muted dark-purple sky with a faint orange glow low down, lavender fill and a warm low sun
+  forest:{bg:0x2c2634, dusk:true, hemi:.62, sky:0xc4b4dc, ground:0x2e2a36, sun:.62, sunColor:0xffbf8a, shadow:.28},
   // cam: the island is seen from further back so the sea shows all round it
   // birdScale: birds that come here are drawn a little smaller
   island:{bg:0x2f78a8, ground:0xb8d4dc, cam:8.4, birdScale:.85},
@@ -689,7 +692,7 @@ function buildBird(id){
 //  Scene
 // ======================================================================
 const canvas = document.getElementById('world');
-const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});  // alpha: the forest's dusk sky is a CSS gradient behind the canvas
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setClearColor(0xf7f7f4);
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -704,9 +707,9 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60).rotateX(-Math.PI/2
 ground.receiveShadow = true; scene.add(ground);
 function applyEnv(pid){
   const e = ENV[pid];
-  renderer.setClearColor(e.bg);
-  hemi.intensity = e.hemi ?? .85; hemi.groundColor.set(e.ground ?? 0xd8d4cc);
-  sun.intensity = e.sun ?? .75; ground.material.opacity = e.shadow ?? .13;
+  renderer.setClearColor(e.bg, e.dusk ? 0 : 1);
+  hemi.intensity = e.hemi ?? .85; hemi.color.set(e.sky ?? 0xffffff); hemi.groundColor.set(e.ground ?? 0xd8d4cc);
+  sun.intensity = e.sun ?? .75; sun.color.set(e.sunColor ?? 0xffffff); ground.material.opacity = e.shadow ?? .13;
   const was = ENV[document.body.dataset.place];
   if (e.cam || was?.cam) camD = e.cam || 6.4;
   document.body.dataset.place = pid;
@@ -939,7 +942,7 @@ const pineGeo = (h, s) => [
 function buildForest(rt){
   const g = rt.group;
   const floor = mesh(skin(shape(new THREE.CircleGeometry(4.6, 12).rotateX(-Math.PI/2), .3, 380),
-    (c,x,y,z) => c.set('#4b6150').lerp(col('#33433a'), ss(1.5, 4.4, Math.hypot(x, z))), 380));
+    (c,x,y,z) => c.set('#4b6150').lerp(col('#3b3543'), ss(1.5, 4.4, Math.hypot(x, z))), 380));  // mossy green fading to dusk purple at the rim
   flatten(floor.geometry);
   floor.position.y = .002; floor.receiveShadow = true; g.add(floor);
   // pines mostly behind and beside the clearing so they don't block the starting view
