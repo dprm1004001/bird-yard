@@ -1,4 +1,4 @@
-# 베리 마당 (bird-yard)
+# 새마당 (Bird Yard)
 
 In a blank white yard, you shake a berry tree and trivial little low-poly birds come to eat the fallen fruit.
 Collect the feathers they drop, open new places and fill the bird encyclopedia.
