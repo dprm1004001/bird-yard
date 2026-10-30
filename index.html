@@ -3541,10 +3541,15 @@ function takePhoto(){
   const fl = $('photoFlash'); fl.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => fl.classList.remove('on')));
   const d = new Date(), z = n => String(n).padStart(2, '0');
   const name = `bird-yard-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.png`;
-  out.toBlob(blob => {
+  out.toBlob(async blob => {
     if (!blob) return;
-    const url = URL.createObjectURL(blob), a = document.createElement('a');
-    a.href = url; a.download = name; document.body.append(a); a.click(); a.remove();
+    const url = URL.createObjectURL(blob);
+    // inside the claude.ai artifact viewer a plain download is blocked, so ask its downloads capability to save it;
+    // anywhere else (GitHub Pages) a normal download link does it
+    let dl = null;
+    try { dl = window.claude?.use ? await window.claude.use('downloads') : null; } catch {}
+    if (dl) dl.save({filename:name, data:blob}).catch(() => {});
+    else { const a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); }
     const th = $('photoThumb'); th.src = url; th.hidden = false; th.style.opacity = 1;
     clearTimeout(takePhoto.t); takePhoto.t = setTimeout(() => { th.style.opacity = 0; }, 2200);
   }, 'image/png');

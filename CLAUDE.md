@@ -46,7 +46,7 @@ The user alternates between two machines.
   - One finger or left drag turns (`camA`) and tilts (`photo.pitch`).
   - Wheel or pinch zooms (`photo.dist`). A held-wheel (middle) drag or a two-finger drag slides the view (`photoPan`, `photo.pan`).
   - `placeCamera` positions the camera in both modes.
-  - The shutter (`takePhoto`) flashes, draws the scene over its background (the forest's dusk gradient is redrawn from `DUSK_STOPS`), saves `bird-yard-YYYYMMDD-HHMMSS.png`, and shows a thumbnail.
+  - The shutter (`takePhoto`) flashes, draws the scene over its background (the forest's dusk gradient is redrawn from `DUSK_STOPS`), saves `bird-yard-YYYYMMDD-HHMMSS.png`, and shows a thumbnail. In the claude.ai artifact it saves through the `downloads` capability (`window.claude.use("downloads")`, so the artifact is published with `capabilities: {downloads: true}`); elsewhere it uses a plain download link.
   - × or Escape leaves.
 
 ## Places and per-place decor
