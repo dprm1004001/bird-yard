@@ -118,6 +118,7 @@ body[data-place="island"] .stats{color:#e3f3f6}
 .card .no{font-size:11px;color:var(--muted);letter-spacing:.08em;font-variant-numeric:tabular-nums}
 .card .nm{font-family:var(--display);font-size:18px}
 .card .meta{font-size:12px;color:var(--muted);min-height:2.6em}
+.card .note{font-size:12px;color:var(--ink);font-style:italic;margin:2px 0}
 
 .list{display:grid;gap:10px}
 .row{border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:6px;background:var(--void)}
@@ -389,6 +390,13 @@ const SPECIES = {
               scale:[1.05,.62,1.15], rarity:.4,
               hint:'어두운 숲 통나무와 똑같은 색이라 내려앉아도 잘 안 보여요.',
               colors:{head:'#7a6d5c',face:'#d9cfbf',neck:'#6e6252',breast:'#8a7c68',body:'#968872',wing:'#6a5e4e',wingTip:'#3e362c',beak:'#3a322a',legs:'#6e6252'}},
+  // 박쥐: not a bird at all. Comes to the dark forest only once the giant pumpkin is there (needsHidden),
+  // and its encyclopedia card stays a secret until it shows up. Bat wings (batWing) and pointy ears on the small template.
+  bat:       {tpl:'small', name:'박쥐', voice:'찍', beak:'cone', beakLen:.03, lean:.05, tailUp:-.1, tailLen:.35, backTint:.9, eye:'#121214',
+              ears:true, batWing:true, rarity:.5, needsHidden:'forest', secret:true,
+              note:'너는... 새가 아니지 않니?',
+              hint:'',
+              colors:{head:'#3b3036',face:'#57474b',neck:'#3b3036',breast:'#4b3d40',body:'#40343a',wing:'#2c2329',wingTip:'#1d171c',beak:'#d99aa4',legs:'#2c2329'}},
 };
 const PLACES = {
   yard:  {name:'베리 마당', cost:0,  food:'berry', species:['robin','magpie','wren','bullfinch'], desc:'작은 베리나무 한 그루에서 시작해요.',
@@ -399,7 +407,7 @@ const PLACES = {
           hint:'벤치 위 과자 봉지를 톡톡 쳐 보세요'},
   river: {name:'맑은 강가', cost:100, food:'seed', species:['kingfisher','wagtail','plover','heron','egret','spoonbill'], desc:'넓은 강물이 가로질러 흐르는 강가.',
           hint:'곡식 자루를 톡톡 쳐서 낟알을 흩뿌려 보세요'},
-  forest:{name:'어두운 숲', cost:160, food:'cone', species:['jay','woodpecker','uralowl','barnowl','owl','nightjar'], desc:'소나무가 빽빽한 어둑한 숲속.',
+  forest:{name:'어두운 숲', cost:160, food:'cone', species:['jay','woodpecker','uralowl','barnowl','owl','nightjar','bat'], desc:'소나무가 빽빽한 어둑한 숲속.',
           hint:'가운데 작은 소나무를 흔들어 솔방울을 떨어뜨려 보세요'},
   // coconuts land whole; hint2 is the second onboarding step, shown after the first drop until a coconut is cracked
   // the last and dearest place, after the dark forest
@@ -436,7 +444,7 @@ const PICNIC = {x:-.35, z:2.1, w:1.2, d:.9, rot:-.22};
 // 맑은 강가's little hot spring, in the open grass at the front left
 const SPRING = {x:-.85, z:1.9, r:.5};
 // 어두운 숲's giant carved pumpkin, back right where two pines used to stand
-const PUMPKIN = {x:1.85, z:-1.95, r:.42, h:.62};
+const PUMPKIN = {x:2.05, z:-2.25, r:.42, h:.62, s:2.15};  // r and h are the model's own size; s scales it up to giant
 const POND_W = {x:1.5, z:-1.1, rx:2.0, rz:1.45};  // the pond's water ellipse
 const ITEM_SPOTS = {
   yard:  {perch:[-1.3,1.4], feeder:[.8,1.6],  house:[2.1,-.4],  collector:[-2.1,.4], cleaner:[-.6,2.0]},
@@ -482,7 +490,7 @@ const done = id => S.ach.includes(id);
 const hasElement = el => ACH.some(a => a.element === el && done(a.id));
 const poolFor = pid => pid === 'yard'
   ? ['robin', ...ACH.filter(a => a.unlocks && done(a.id)).map(a => a.unlocks)]
-  : PLACES[pid].species;
+  : PLACES[pid].species.filter(k => !SPECIES[k].needsHidden || S.hidden[SPECIES[k].needsHidden]);
 
 // ======================================================================
 //  Geometry helpers
@@ -593,6 +601,9 @@ function makeTemplate({segs, H, R, hr, legLen, round}){
   P.eye   = shape(new THREE.OctahedronGeometry(hr*(round ? .17 : .14), 0).scale(1, 1, .45));
   P.pupil = shape(new THREE.OctahedronGeometry(hr*.065, 0).scale(1, 1, .5));
   P.wing  = shape(lathe([[0,0],[wr*.23,L*.28],[wr*.17,L*.66],[0,L]], 4).scale(.32,1,1).rotateX(Math.PI), J*R*1.5, 6);
+  // bat wing: a thin membrane hanging down the side like a folded wing, with a scalloped trailing edge between the fingers
+  P.batWing = shape(new THREE.ExtrudeGeometry(new THREE.Shape([[0,0],[R*.3,-L*.35],[R*.18,-L*1.05],[0,-L*.72],[-R*.18,-L*1.0],[-R*.3,-L*.62],
+    [-R*.5,-L*.8],[-R*.45,-L*.25]].map(([u, v]) => new THREE.Vector2(u, v))), {depth:R*.03, bevelEnabled:false}).rotateY(Math.PI/2).translate(-R*.015, 0, 0));
   P.tail  = shape(new THREE.ConeGeometry(R*.38, tl, 4).rotateX(-Math.PI/2).translate(0, 0, -tl/2).scale(1.25, .35, 1), J*R, 9);
   const len = legLen + H*.1;
   P.leg   = shape(new THREE.CylinderGeometry(R*.065, R*.055, len, 3, 1, true).translate(0, -len/2 + H*.1, 0));
@@ -640,7 +651,7 @@ function skinsFor(id){
     plume: sp.plume ? skin(P.plume, c => c.copy(C.head), 8) : null,
     eye:   skin(P.eye, c => c.set(sp.eye), 4),
     pupil: sp.pupil ? skin(P.pupil, c => c.set('#0d0d10'), 5) : null,
-    wing:  skin(P.wing, (c,x,y,z,f) => {
+    wing:  sp.batWing ? skin(P.batWing, (c,x,y) => c.copy(C.wing).lerp(C.wingTip, ss(.2, 1, -y/L)), 6) : skin(P.wing, (c,x,y,z,f) => {
       const v = -y/L;
       c.copy(C.wing).lerp(C.wingTip, ss(.45, .95, v));
       if (sp.stripes && v > .6){ const q = Math.floor(f/2); c.copy((Math.floor(q/3) + q%3) % 2 ? C.wingTip : white); }
@@ -1526,7 +1537,7 @@ const riverDecor = (() => {
 //   more of each with every item after that ----------
 const forestDecor = (() => {
   const g = new THREE.Group(); RT.forest.group.add(g);
-  const avoid = {obstacles:[...RT.forest.obstacles.map(o => ({x:o.x, z:o.z, r:o.r + .12})), {x:PUMPKIN.x, z:PUMPKIN.z, r:PUMPKIN.r + .2},
+  const avoid = {obstacles:[...RT.forest.obstacles.map(o => ({x:o.x, z:o.z, r:o.r + .12})), {x:PUMPKIN.x, z:PUMPKIN.z, r:PUMPKIN.r*PUMPKIN.s + .2},
     ...Object.values(ITEM_SPOTS.forest).map(([x, z]) => ({x, z, r:.38}))]};
   const floorSpot = (i, salt, rMax = 3.4) => {
     const a = rnd(i*12.9 + salt)*Math.PI*2, d = .75 + Math.sqrt(rnd(i*7.3 + salt*3))*(rMax - .75);
@@ -1968,7 +1979,8 @@ function updateSteam(rt, dt){
 // giant carved pumpkin (forest hidden object): a ribbed orange pumpkin with a glowing carved face and a warm light inside
 const pumpkinGlow = new THREE.MeshBasicMaterial({color:0xffd060});
 function placePumpkin(rt, pop){
-  const {x, z, r, h} = PUMPKIN, g = new THREE.Group(); g.position.set(x, 0, z);
+  const {x, z, r, h, s:S} = PUMPKIN, g = new THREE.Group(); g.position.set(x, 0, z);
+  const pg = new THREE.Group(); pg.scale.setScalar(S); g.add(pg);
   const RIBS = 10, ry = h/2;
   // ribbed body: every other column of vertices pulled in, so the pumpkin has soft lobes
   const body = new THREE.SphereGeometry(1, RIBS*2, 7), bp = body.attributes.position;
@@ -1977,12 +1989,12 @@ function placePumpkin(rt, pop){
     const k = (1 - .08*Math.abs(Math.sin(a*RIBS/2)))*(1 - .12*vy*vy);
     bp.setXYZ(i, vx*r*k, vy*ry*(vy < 0 ? .85 : 1) + ry*.85, vz*r*k);
   }
-  g.add(mesh(skin(body.toNonIndexed(), (c,px,py,pz) => {
+  pg.add(mesh(skin(body.toNonIndexed(), (c,px,py,pz) => {
     const a = Math.atan2(pz, px);
     c.set(Math.abs(Math.sin(a*RIBS/2)) > .5 ? '#d9661f' : '#ec8a2f').lerp(col('#b5521a'), ss(.6, 0, py));
   }, 1020)));
-  g.add(mesh(solid(new THREE.CylinderGeometry(.035, .055, .14, 5).rotateZ(.25).translate(.015, h + .03, 0), '#5e6b2f', 1021)));
-  g.add(mesh(solid(new THREE.ConeGeometry(.06, .12, 3).rotateZ(1.3).translate(.08, h - .005, .03).scale(1, .35, 1), '#4f7a33', 1022)));
+  pg.add(mesh(solid(new THREE.CylinderGeometry(.035, .055, .14, 5).rotateZ(.25).translate(.015, h + .03, 0), '#5e6b2f', 1021)));
+  pg.add(mesh(solid(new THREE.ConeGeometry(.06, .12, 3).rotateZ(1.3).translate(.08, h - .005, .03).scale(1, .35, 1), '#4f7a33', 1022)));
   // the carved face: flat glowing shapes laid onto the front of the body
   const face = new THREE.Group(), cy = ry*.85;
   const onSurface = (pts, dy) => {
@@ -1997,14 +2009,14 @@ function placePumpkin(rt, pop){
   onSurface([[-.025, 0], [.025, 0], [0, .045]], 0);                                         // little nose
   onSurface([[-.2, .02], [-.14, -.03], [-.1, -.005], [-.06, -.06], [0, -.03], [.06, -.06], [.1, -.005], [.14, -.03], [.2, .02],
              [.12, -.1], [.04, -.12], [-.04, -.12], [-.12, -.1]].reverse(), -.06);         // jagged grin
-  g.add(face);
+  pg.add(face);
   // face the usual view
   g.rotation.y = Math.atan2(-x, 6 - z);
   // warm light spilling out onto the forest floor
-  const lamp = new THREE.PointLight(0xffa040, 1.1, 2.6, 2); lamp.position.set(0, cy, r + .2); g.add(lamp);
+  const lamp = new THREE.PointLight(0xffa040, 1.4, 2.6*S, 2); lamp.position.set(0, cy*S, (r + .2)*S); g.add(lamp);
   rt.group.add(g);
   rt.hiddenObj = {g, pumpkin:true}; rt.elements.hidden = g;
-  addObstacle(rt, x, z, r + .04, true);
+  addObstacle(rt, x, z, r*S + .04, true);
   if (pop){ g.userData.target = 1; g.scale.setScalar(.001); g.userData.pop = 0; }
 }
 function placeHidden(pid, pop){
@@ -3260,14 +3272,18 @@ function renderDex(){
     for (const id of PLACES[pid].species){
       n++;
       const sp = SPECIES[id], s = S.seen[id], c = document.createElement('div');
+      // a secret card gives nothing away until it has been met
       c.className = 'card' + (s ? '' : ' locked');
       const img = document.createElement('img'); img.src = portraits[id] || ''; img.alt = s ? sp.name : '아직 만나지 못한 새';
+      if (!s && sp.secret) img.style.visibility = 'hidden';  // not even a silhouette
       const no = document.createElement('div'); no.className = 'no'; no.textContent = `No.${String(n).padStart(3, '0')}`;
       const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = s ? sp.name : '???';
       const meta = document.createElement('div'); meta.className = 'meta';
       meta.textContent = s ? `찾아온 횟수 ${s.visits} · 먹은 먹이 ${s.eaten}`
-        : S.places.includes(pid) ? sp.hint : `${PLACES[pid].name}을(를) 열면 만날 수 있어요.`;
-      c.append(img, no, nm, meta); grid.append(c);
+        : sp.secret ? '비밀 도감이에요.' : S.places.includes(pid) ? sp.hint : `${PLACES[pid].name}을(를) 열면 만날 수 있어요.`;
+      c.append(img, no, nm);
+      if (s && sp.note){ const nt = document.createElement('div'); nt.className = 'note'; nt.textContent = sp.note; c.append(nt); }
+      c.append(meta); grid.append(c);
     }
   }
 }
@@ -3295,7 +3311,7 @@ function renderPlaces(){
     r.querySelector('.nm').textContent = pl.name;
     r.querySelector('.ct').textContent = pid === cur ? '지금 여기' : open ? '열림' : `깃털 ${pl.cost}개`;
     r.querySelector('.ds').textContent = pl.desc;
-    r.querySelector('.rw').textContent = '찾아오는 새 · ' + pl.species.map(k => S.seen[k] ? SPECIES[k].name : '???').join(', ');
+    r.querySelector('.rw').textContent = '찾아오는 새 · ' + pl.species.filter(k => S.seen[k] || !SPECIES[k].secret).map(k => S.seen[k] ? SPECIES[k].name : '???').join(', ');
     const btn = document.createElement('button'); btn.className = 'go';
     if (pid === cur){ btn.textContent = '여기 있어요'; btn.disabled = true; btn.classList.add('light'); }
     else if (open){ btn.textContent = '이동하기'; btn.onclick = () => goPlace(pid); }
@@ -3346,7 +3362,7 @@ function unlockPlace(pid){
   const pl = PLACES[pid];
   if (S.places.includes(pid) || S.feathers < pl.cost) return;
   S.feathers -= pl.cost; S.places.push(pid); save();
-  toast(`새 장소 · ${pl.name}`, `${pl.species.map(k => SPECIES[k].name).join(', ')}이(가) 찾아올지도 몰라요`, true);
+  toast(`새 장소 · ${pl.name}`, `${pl.species.filter(k => !SPECIES[k].secret).map(k => SPECIES[k].name).join(', ')}이(가) 찾아올지도 몰라요`, true);
   goPlace(pid);
 }
 function goPlace(pid){

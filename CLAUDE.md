@@ -128,7 +128,12 @@ Hidden objects (`HIDDEN`):
 - 어두운 숲 (`forest`) has a giant carved pumpkin (`PUMPKIN`, `placePumpkin`) at the back right. The user had the two pines there removed as if they never existed.
   - It is a ribbed orange pumpkin with a stem and leaf. Its carved face (triangle eyes, nose, jagged grin) is flat glowing shapes laid onto the front (`pumpkinGlow`), turned to face the usual view.
   - A warm orange `PointLight` in front spills light onto the floor.
-  - So far it is only the object, placed for a position check. Bird behaviour around it is still to be directed.
+  - The model is built at its own size (`r`, `h`) inside an inner group scaled by `PUMPKIN.s` (2.15); the user asked for it this big.
+  - Bird behaviour around it is still to be directed.
+  - Buying it brings the bat (`bat`, 박쥐), which isn't a bird. It's a small-template species with `ears` and `batWing` (a scalloped membrane part, `P.batWing`).
+    - `needsHidden:'forest'` keeps it out of `poolFor` until the pumpkin is placed.
+    - `secret:true` makes its encyclopedia card "???" / "비밀 도감이에요." with no portrait until it's met. It's also left out of place lists and the place-open toast.
+    - Once met, its card shows its `note`: "너는... 새가 아니지 않니?" (the user's line).
 - The island's hidden object is still to be directed by the user.
 
 ## Hidden motion: the dance
