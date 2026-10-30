@@ -91,8 +91,8 @@ body[data-place="forest"] .photo-help,body[data-place="island"] .photo-help{colo
 .photo-flash{position:fixed;inset:0;z-index:7;background:#fff;opacity:0;pointer-events:none;transition:opacity .35s}
 .photo-flash.on{opacity:.85;transition:none}
 /* place change: fades over the scene (under the HUD) and back */
-.veil{position:fixed;inset:0;z-index:4;opacity:0;pointer-events:none;transition:opacity .2s ease}
-.veil.on{opacity:1}
+.veil{position:fixed;inset:0;width:100%;height:100%;z-index:4;opacity:0;pointer-events:none}
+.veil.fade{transition:opacity .15s ease}
 /* the dark forest: HUD text sitting directly on the scene turns light */
 /* dusk over the dark forest: muted dark purple, with a faint orange glow behind the treeline (the upper middle of the screen) */
 body[data-place="forest"]{background:linear-gradient(180deg,#272130 0%,#3b3146 16%,#634756 30%,#80594b 42%,#5a4250 56%,#342c3c 75%,#2a2432 100%)}
@@ -248,7 +248,7 @@ body[data-place="island"] .stats{color:#e3f3f6}
   <img class="photo-thumb" id="photoThumb" alt="방금 찍은 사진" hidden>
 </div>
 <div class="photo-flash" id="photoFlash"></div>
-<div class="veil" id="veil"></div>
+<canvas class="veil" id="veil"></canvas>
 <!-- bottom stack, top to bottom: clean-up, place arrows, menu -->
 <div class="hud bottom">
   <div class="brow"><button class="pill clean" id="cleanBtn" hidden>똥 치우기</button></div>
@@ -3543,14 +3543,19 @@ canvas.addEventListener('auxclick', e => { if (photo) e.preventDefault(); });
 canvas.addEventListener('mousedown', e => { if (photo && e.button === 1) e.preventDefault(); });  // no autoscroll on a wheel press
 // the shutter: draw the scene over its own background (the forest's dusk sky is CSS behind the canvas) and save it
 const DUSK_STOPS = [[0,'#272130'],[.16,'#3b3146'],[.3,'#634756'],[.42,'#80594b'],[.56,'#5a4250'],[.75,'#342c3c'],[1,'#2a2432']];
-function takePhoto(){
+// the scene as it looks right now, background included, drawn into a 2D canvas (into `out` if given)
+function snapshot(out = document.createElement('canvas')){
   placeCamera(); renderer.render(scene, camera);
-  const src = renderer.domElement, out = document.createElement('canvas'); out.width = src.width; out.height = src.height;
+  const src = renderer.domElement; out.width = src.width; out.height = src.height;
   const c2 = out.getContext('2d'), e = ENV[cur];
   if (e.dusk){ const gr = c2.createLinearGradient(0, 0, 0, out.height); DUSK_STOPS.forEach(([o, h]) => gr.addColorStop(o, h)); c2.fillStyle = gr; }
   else c2.fillStyle = '#' + new THREE.Color(e.bg).getHexString();
   c2.fillRect(0, 0, out.width, out.height);
   c2.drawImage(src, 0, 0);
+  return out;
+}
+function takePhoto(){
+  const out = snapshot();
   const fl = $('photoFlash'); fl.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => fl.classList.remove('on')));
   const d = new Date(), z = n => String(n).padStart(2, '0');
   const name = `bird-yard-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.png`;
@@ -3576,20 +3581,19 @@ const $ = id => document.getElementById(id);
 function stepPlace(d){
   const open = PLACE_ORDER.filter(p => S.places.includes(p));
   if (open.length < 2){ toast('아직 다른 장소가 없어요', '깃털을 모아 장소 메뉴에서 새 장소를 열어 보세요'); return; }
-  // quick presses step on from wherever the last press was headed
-  const from = veil.to || cur;
+  const from = cur;
   switchPlace(open[(open.indexOf(from) + d + open.length) % open.length]);
 }
-// a soft change of place: the screen fades to the next place's own background colour over 0.2 s,
-// the place switches behind it, then it fades back in
-const veil = {to:null, timer:0};
+// a soft change of place: a crossfade. A still of the place you're leaving is laid over the screen, the place switches
+// underneath straight away, and the still fades out over 0.15 s so the two overlap as one dissolves into the other
 function switchPlace(pid){
-  if (pid === cur && !veil.to) return;
+  if (pid === cur) return;
   const el = $('veil');
-  el.style.background = '#' + new THREE.Color(ENV[pid].bg).getHexString();
-  el.classList.add('on'); veil.to = pid;
-  clearTimeout(veil.timer);
-  veil.timer = setTimeout(() => { goPlace(veil.to); veil.to = null; el.classList.remove('on'); }, 200);
+  snapshot(el);
+  el.classList.remove('fade'); el.style.opacity = 1;
+  goPlace(pid);
+  void el.offsetWidth;  // commit the full-opacity still before fading it
+  el.classList.add('fade'); el.style.opacity = 0;
 }
 $('prevPlace').onclick = () => stepPlace(-1);
 $('nextPlace').onclick = () => stepPlace(1);
