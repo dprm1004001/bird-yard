@@ -42,6 +42,7 @@ The user alternates between two machines.
 - Poop shows as soft grey overlapping ellipses, like rain spots. Dirt slows bird visits. "똥 치우기" and the cleaner plover clear it.
 - Bottom HUD order, top to bottom: 똥 치우기 → ◀ ▶ (switch place) → the 장소/상점/도감/업적 menu, which stays on one row on phones.
 - Changing place (◀ ▶, 이동하기, or opening a new place) goes through `switchPlace`. It is a crossfade, as the user asked: a still of the old place (`snapshot`, background included) is laid over the screen in `#veil` (a canvas under the HUD). The place switches underneath at once, and the still fades out over 0.15 s.
+- On phones, two fingers pinch to zoom (`camD`, 3.5–11) outside photo mode too (`fingers`, `drag.pinch`). A second finger turns whatever the first finger started into a pinch, and lifting a finger out of a pinch doesn't trigger a tap.
 - Drag that starts on a food source shakes it. Drag that starts on a feather sweeps feathers. Any other drag rotates the view.
 - Photo mode: the round camera button under the feather count (`photoBtn`) opens it (`enterPhoto`). The HUD hides and the game keeps running.
   - One finger or left drag turns (`camA`) and tilts (`photo.pitch`).

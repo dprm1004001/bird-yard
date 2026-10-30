@@ -3559,9 +3559,17 @@ function pick(e){
 }
 let drag = null;
 canvas.addEventListener('contextmenu', e => e.preventDefault());
+// fingers on the screen, so two of them can pinch to zoom outside photo mode too
+const fingers = new Map();
+const fingerGap = () => { const [a, b] = [...fingers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
 canvas.addEventListener('pointerdown', e => {
   canvas.setPointerCapture(e.pointerId);
   if (photo) return photoDown(e);
+  if (e.pointerType === 'touch'){
+    fingers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    // a second finger turns whatever the first one started into a pinch
+    if (fingers.size >= 2){ drag = {pinch:true, gap:fingerGap(), moved:99}; return; }
+  }
   if (e.button === 2){ drag = {orbit:true, lastX:e.clientX, lastY:e.clientY, moved:0}; return; }
   // a drag that starts on a food source shakes it, one that starts on a feather sweeps feathers,
   // and one that starts anywhere else turns the view
@@ -3572,6 +3580,15 @@ canvas.addEventListener('pointerdown', e => {
 });
 canvas.addEventListener('pointermove', e => {
   if (photo) return photoMove(e);
+  if (fingers.has(e.pointerId)) fingers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if (drag?.pinch){
+    if (fingers.size >= 2){
+      const gap = fingerGap();
+      if (drag.gap > 10 && gap > 10) camD = Math.min(11, Math.max(3.5, camD*drag.gap/gap));
+      drag.gap = gap;
+    }
+    return;
+  }
   if (!drag){ canvas.classList.toggle('over-tree', !!pick(e)); return; }
   const dx = e.clientX - drag.lastX, dy = e.clientY - drag.lastY;
   drag.lastX = e.clientX; drag.lastY = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
@@ -3600,8 +3617,9 @@ const endDrag = () => {
   if (drag && drag.orbit && drag.moved < 6 && !tapPumpkin(drag.x0, drag.y0) && P.waterMeshes) tapWater(drag.x0, drag.y0);
   drag = null;
 };
-canvas.addEventListener('pointerup', e => photo ? photoUp(e) : endDrag());
-canvas.addEventListener('pointercancel', e => { if (photo) photoUp(e); drag = null; });
+const liftFinger = e => { fingers.delete(e.pointerId); if (drag?.pinch && fingers.size < 2){ drag = null; return true; } return !!drag?.pinch; };
+canvas.addEventListener('pointerup', e => { if (photo){ fingers.delete(e.pointerId); return photoUp(e); } if (liftFinger(e)) return; endDrag(); });
+canvas.addEventListener('pointercancel', e => { if (photo) photoUp(e); fingers.delete(e.pointerId); drag = null; });
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
   if (photo) photo.dist = Math.min(14, Math.max(.8, photo.dist*(1 + e.deltaY*.0012)));
