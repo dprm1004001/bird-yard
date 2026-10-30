@@ -2597,7 +2597,7 @@ function makeGuitar(R){
 // a bird stands on the stump with a little guitar and strums it, very badly, with a wing, while a soft guitar tune plays.
 // A bird just resting up there makes way for it
 const guitarMusic = new Audio('sounds/guitar.mp3'); guitarMusic.preload = 'auto';
-const GUITAR_VOL = .1;
+const GUITAR_VOL = .05;
 function startGuitarist(rt){
   const spots = rt.stumpSpots; if (!spots) return;
   for (const s of spots){

@@ -114,7 +114,7 @@ Hidden objects (`HIDDEN`):
   - The stump has a single spot, in the middle: only one bird at a time uses it, as the user asked.
   - Hidden motion: a bird stands on the stump strumming a tiny guitar with its wing (`startGuitarist`, `makeGuitar`).
     - It plays for 20 s, with a 55% chance every 10 s. A bird just resting on the stump flies off to make way.
-    - While it plays, `sounds/guitar.mp3` (the user's file) plays softly (`GUITAR_VOL` .1). It fades in over 1 s, fades out over the last 2 s, and stops if you leave.
+    - While it plays, `sounds/guitar.mp3` (the user's file) plays softly (`GUITAR_VOL` .05; the user halved it from .1). It fades in over 1 s, fades out over the last 2 s, and stops if you leave.
 - 작은 연못 (`pond`) has a picnic mat (`PICNIC`, `placePicnic`) in the grass in front of the bread basket. It's pale red and white checks, with a closed little basket and a plate holding one hotdog.
   - Birds sometimes peck at the hotdog (rest kind `hotdog`). Others sit side by side on the mat (rest kind `picnic`, 3 seats) holding a can of beer in a wing (`makeCan`).
   - Each sip (`picnicPose`, lifting the wing to the beak) reddens the face one step via an emissive head material (`setDrunk`, `drunkMats`, levels 1–3).
