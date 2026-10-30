@@ -1688,7 +1688,7 @@ const islandDecor = (() => {
   const BLOBS = [[0,.12,0,0],[.15,.09,.06,1],[-.13,.08,.07,2]];  // x, y, z, which blob geometry
   const up = new THREE.Vector3(0, 1, 0), dir = new THREE.Vector3();
   const groves = [];
-  for (let i = 0; i < 8; i++){
+  for (let i = 0; i < 6; i++){  // was 8; the user cut 20% because they crowded the birds
     const grove = new THREE.Group();
     // the first few gather round the palm's foot, the rest spread over the green
     const p = i < 3 ? sandSpot(i, 5, .55, .95, .2) : sandSpot(i, 6, .7, 1.75, .2);
@@ -1703,7 +1703,6 @@ const islandDecor = (() => {
     // a fallen bloom or two on the sand beside it
     if (i % 2 === 0){ const f = plumeria(PLUMERIA[i % 3]); f.position.set(-.05, .006, .26); f.scale.setScalar(.7); grove.add(f); }
     add(groves, grove, .85 + rnd(i*4)*.3, i + 50);
-    groves.at(-1).foot = {x:p.x, z:p.z, r:.2, extra:true};
   }
   // pops each list up to n items: one at a time (gap seconds apart) or all at once
   const grow = (list, n, dt, instant, gap, state) => {
@@ -1730,13 +1729,7 @@ const islandDecor = (() => {
       grow(rocks, L >= 2 ? Math.min(rocks.length, (L - 1)*2) : 0, dt, instant, .5, st.rocks);
       grow(shells, L >= 3 ? (L - 2)*4 : 0, dt, instant, .3, st.shells);
       grow(groves, L >= 4 ? (L - 3)*4 : 0, dt, instant, .6, st.groves);
-      // a thicket that's showing is solid: birds walk round it
-      const obs = RT.island.obstacles;
-      for (const o of groves){
-        const on = obs.includes(o.foot);
-        if (o.g.visible && !on) obs.push(o.foot);
-        else if (!o.g.visible && on) obs.splice(obs.indexOf(o.foot), 1);
-      }
+      // thickets aren't solid: birds walk straight through them
       rocks.forEach(o => { o.g.position.y = -.07 + Math.sin(t*1.1 + o.ph)*.02; o.g.rotation.z = Math.sin(t*.8 + o.ph)*.05; });
     },
   };

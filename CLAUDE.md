@@ -62,7 +62,7 @@ The island (`buildIsland`):
   - 1+: a lime-green wash in the middle of the sand. The island's light bleaches pale colours, so mix colours deep there.
   - 2+: rocks bobbing in the sea.
   - 3+: scallop and cone shells.
-  - 4+: plumeria thickets: tiny bush blobs, smaller than the yard's bush, with plumeria peeking out between them. Birds walk round a thicket once it shows.
+  - 4+: plumeria thickets: tiny bush blobs, smaller than the yard's bush, with plumeria peeking out between them. There are 6 (the user cut 20% from 8), and birds walk straight through them: they were in the way.
 - `HIDDEN_ZONE.island` is the front of the island, facing the starting view. It is kept empty of decor and items for the island's future hidden object. The feeder and cleaner spots were moved out of it.
 - Its hidden object is the beach hut set (see Hidden objects).
 - Flamingo (`flamingo`) is the biggest bird: `SIZE` 1.2 makes up for the island's .85 scale. Its bill has a hard black tip (`tipFrom`). It idles on one leg (`oneLeg`), and after eating it usually wades to `rt.wadeSpots`, three spots in the surf off the beach. It stands there with one leg folded up (rest kind `wade`).
