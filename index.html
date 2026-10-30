@@ -793,8 +793,10 @@ function buildPlaza(rt){
     const leg = mesh(solid(new THREE.BoxGeometry(.06, .42, .34), iron, 134)); leg.position.set(sx, .21, 0); bench.add(leg);
   }
   // loafing spots: two on the seat (clear of the snack bag), two tucked under the bench
+  // spots under the seat carry the point in front of the bench that birds walk in from and out to
   for (const [x, y, z] of [[-.45,.45,-.5],[-.15,.45,-.52],[-.25,0,-.5],[.25,0,-.45]])
-    rt.specials.push({kind:'loaf', pos:new THREE.Vector3(x, y, z), yaw:(Math.random()-.5)*.6, occupant:null});
+    rt.specials.push({kind:'loaf', pos:new THREE.Vector3(x, y, z), yaw:(Math.random()-.5)*.6, occupant:null,
+                      under:y < .05 ? new THREE.Vector3(x, 0, -.5 + .5) : null});
   const slotPos = [];
   for (let i = 0; i < 8; i++) slotPos.push(new THREE.Vector3(-.16 + (i%4)*.1 + rnd(i)*.03, .03, .1 + Math.floor(i/4)*.08));
   makeSource(rt, {x:.25, z:-.5 + 0, food:'snack', throwH:1.6, throwUp:1.6, slotPos:slotPos.map(p => p.clone().add(new THREE.Vector3(0, .42, -.05))), build:(bg, src) => {
@@ -919,7 +921,7 @@ buildYard(RT.yard); buildPond(RT.pond); buildPlaza(RT.plaza); buildRiver(RT.rive
 for (const [pid, list] of Object.entries({
   yard:  [[0,0,.32]],
   pond:  [[-.6,.5,.32],[-1.6,1.3,.2],[-1.25,.8,.2],[-.9,.3,.2]],
-  plaza: [[-.5,-.5,.27],[0,-.5,.27],[.5,-.5,.27],[-1.9,-1.4,.12]],
+  plaza: [[-.5,-.5,.31],[0,-.5,.31],[.5,-.5,.31],[-1.9,-1.4,.12]],
   river: [[-.5,.75,.32]],
   forest:[[0,0,.6],[1.3,.9,.2],[1.64,.79,.2],[.96,1.01,.2],[-1.4,1.0,.28]],
   island:[[-.35,-.3,.16]],
@@ -1664,7 +1666,7 @@ const plazaDecor = (() => {
     const seat = mesh(solid(new THREE.BoxGeometry(1.3, .06, .38), wood, 132)); seat.position.y = .42; b.add(seat);
     const back = mesh(solid(new THREE.BoxGeometry(1.3, .26, .05), wood, 133)); back.position.set(0, .66, -.18); back.rotation.x = -.12; b.add(back);
     for (const sx of [-.55, .55]){ const leg = mesh(solid(new THREE.BoxGeometry(.06, .42, .34), iron, 134)); leg.position.set(sx, .21, 0); b.add(leg); }
-  }, [[-.5,1.4,.27],[0,1.4,.27],[.5,1.4,.27]], [[-.35,.45,1.42],[.2,.45,1.4],[-.25,0,1.4],[.3,0,1.45]]);
+  }, [[-.5,1.4,.31],[0,1.4,.31],[.5,1.4,.31]], [[-.35,.45,1.42],[.2,.45,1.4],[-.25,0,1.4],[.3,0,1.45]]);
   stage(3, sg => sg.add(planter(-1.6, .45, .5, 1.1, ['#e0394a','#fff4f0','#ff8fb0']), planter(1.6, .45, .5, 1.1, ['#e0394a','#fff4f0','#ff8fb0'])),
     [[-1.6,.1,.3],[-1.6,.8,.3],[1.6,.1,.3],[1.6,.8,.3]]);
   stage(4, sg => sg.add(planter(-.95, -2.15, 1.0, .42, ['#ffb52e','#fff4f0','#b98be8']), planter(.95, -2.15, 1.0, .42, ['#ffb52e','#fff4f0','#b98be8']),
@@ -1699,7 +1701,11 @@ const plazaDecor = (() => {
         if (want && !s.on){
           s.on = true; s.grow = instant ? 1 : 0;
           s.refs = s.obs.map(([x, z, r]) => { const o = {x, z, r, extra:true}; rt.obstacles.push(o); return o; });
-          s.specRefs = s.specs.map(([x, y, z]) => { const sp = {kind:'loaf', pos:new THREE.Vector3(x, y, z), yaw:Math.PI + (Math.random()-.5)*.6, occupant:null}; rt.specials.push(sp); return sp; });
+          s.specRefs = s.specs.map(([x, y, z]) => {
+            const sp = {kind:'loaf', pos:new THREE.Vector3(x, y, z), yaw:Math.PI + (Math.random()-.5)*.6, occupant:null,
+                        under:y < .05 ? new THREE.Vector3(x, 0, 1.4 - .5) : null};  // the facing bench opens toward -z
+            rt.specials.push(sp); return sp;
+          });
         } else if (!want && s.on){
           s.on = false; s.grow = 0;
           rt.obstacles = rt.obstacles.filter(o => !s.refs.includes(o));
@@ -1790,7 +1796,9 @@ function actor(rt, id){
   return {rt, b, id, fly:1, peck:0, headYaw:0, headGoal:0, wiggle:0, hop:null, rest:0, t:0};
 }
 function flyTo(A, from, to){
-  A.p0 = from.clone(); A.p2 = to.clone(); A.p1 = from.clone().lerp(to, .6); A.p1.y = Math.max(from.y, to.y) + .8;
+  A.p0 = from.clone(); A.p2 = to.clone();
+  // drop steeply onto a landing spot and climb steeply off a take-off spot, so the path never skims through benches or lamps
+  A.p1 = from.y > to.y ? steepEnd(from, to) : steepEnd(to, from);
   A.dur = .6 + from.distanceTo(to)/4; A.t = 0; A.b.root.position.copy(from);
 }
 function flyStep(A, dt, landing){
@@ -2170,6 +2178,13 @@ function sweep(x, y){
 // ======================================================================
 let T0 = 0;
 const v3 = new THREE.Vector3();
+// control point for a flight that should arrive at (or leave from) `near` steeply:
+// just above it, nudged a little toward `far`, so the last stretch is a near-vertical drop
+function steepEnd(far, near){
+  const dx = far.x - near.x, dz = far.z - near.z, d = Math.hypot(dx, dz) || 1;
+  const h = Math.min(1.4, .45 + d*.25);
+  return new THREE.Vector3(near.x + dx/d*Math.min(.06, d*.3), near.y + h, near.z + dz/d*Math.min(.06, d*.3));
+}
 const bez = (B, u, out) => {
   const a = (1-u)*(1-u), b = 2*(1-u)*u, c = u*u;
   return out.set(a*B.p0.x + b*B.p1.x + c*B.p2.x, a*B.p0.y + b*B.p1.y + c*B.p2.y, a*B.p0.z + b*B.p1.z + c*B.p2.z);
@@ -2200,7 +2215,9 @@ function spawnBird(rt, spot){
     p2 = new THREE.Vector3(tp.x + dir.x*(reach + .17*BK), 0, tp.z + dir.z*(reach + .17*BK));
     pushOut(rt, p2, (large ? .16 : .1)*BK);
   }
-  const p1 = p0.clone().lerp(p2, .65); p1.y = Math.max(1.6, p2.y + .6);
+  // birds headed under a bench land in front of it first, then tuck in with a low hop
+  if (spot?.under) p2 = spot.under.clone();
+  const p1 = steepEnd(p0, p2);
   const B = {rt, b, id, state:'in', t:0, dur:p0.distanceTo(p2)/4.2, p0, p1, p2, target, fly:1, peck:0, headYaw:0, headGoal:0, lookT:1, full:0,
              hop:null, rest:0, reach, poopT:3 + Math.random()*6, restSpot:spot || null,
              step: large ? {len:.13*BK*k, time:.2, h:.012*BK*k} : {len:.11*BK*k, time:.17, h:.035*BK*k}};
@@ -2296,10 +2313,14 @@ function land(B){
   save(); checkAch(); updateHUD();
 }
 function leave(B){
-  const p = B.b.root.position.clone(), a = Math.random()*Math.PI*2;
+  const p = B.b.root.position.clone(), U = B.restSpot?.under;
+  // out from under a bench: leave on the open side, scooting forward low before climbing
+  let a = Math.random()*Math.PI*2;
+  if (U) a = Math.atan2(U.z - p.z, U.x - p.x) + (Math.random() - .5)*1.2;
   if (Math.random() < .4) dropFeather(B.rt, p);
   B.p0 = p; B.p2 = new THREE.Vector3(p.x + Math.cos(a)*9, 5, p.z + Math.sin(a)*9);
-  B.p1 = new THREE.Vector3(p.x + Math.cos(a)*1.4, 1.1, p.z + Math.sin(a)*1.4);
+  B.p1 = U ? U.clone().setY(.12).add(new THREE.Vector3(Math.cos(a)*.35, 0, Math.sin(a)*.35))
+           : steepEnd(B.p2, p);   // otherwise climb straight up and away
   B.dur = 2.4; B.t = 0; B.state = 'out'; B.peck = 0;
   if (B.target){ B.target.claimed = null; B.target = null; }
   if (B.restSpot){ B.restSpot.occupant = null; B.restSpot = null; }
@@ -2331,7 +2352,11 @@ function setSit(B, sit){
 function goRest(B, spot){
   spot.occupant = B; B.restSpot = spot;
   B.p0 = B.b.root.position.clone(); B.p2 = spot.pos.clone();
-  B.p1 = B.p0.clone().lerp(B.p2, .5); B.p1.y = Math.max(B.p0.y, B.p2.y) + .7;
+  if (spot.under){
+    // walk-hop in under the seat: land at the front, then a low hop in (handled on arrival)
+    B.p2 = spot.under.clone();
+  }
+  B.p1 = steepEnd(B.p0, B.p2);
   B.dur = .5 + B.p0.distanceTo(B.p2)/3; B.t = 0; B.state = 'in';
 }
 // big, heavy fliers take the hop over an obstacle lazily; everyone else flits across
@@ -2342,6 +2367,12 @@ function skipTo(B, dest){
   pushOut(B.rt, dest, (B.b.large ? .16 : .1)*BK);
   B.p0 = r.position.clone(); B.p2 = new THREE.Vector3(dest.x, 0, dest.z);
   B.p1 = B.p0.clone().lerp(B.p2, .5); B.p1.y = slow ? .55 : .35;
+  // if the hop passes over something solid (a bench, a planter), arc high enough to clear it
+  for (const k of [.3, .5, .7]){
+    const q = {x:B.p0.x + (B.p2.x - B.p0.x)*k, z:B.p0.z + (B.p2.z - B.p0.z)*k}, q0 = {...q};
+    pushOut(B.rt, q, .02);
+    if (q.x !== q0.x || q.z !== q0.z){ B.p1.y = 1.8; break; }  // peak ~0.9, above a bench back
+  }
   B.dur = slow ? 1.1 : .45; B.t = 0; B.after = B.state; B.state = 'skip'; B.hop = null; B.stuck = 0;
 }
 // every 0.6 s: if a bird that's trying to move has barely moved twice running, it's wedged somewhere
@@ -2376,6 +2407,13 @@ function updateBird(B, dt){
       if (B.state === 'in'){
         B.fly = 0;
         if (!B.landed){ B.landed = true; land(B); }
+        if (B.restSpot?.under && !B.tucked){
+          // landed in front of the bench: a low hop in under the seat
+          B.tucked = true; B.p0 = r.position.clone(); B.p2 = B.restSpot.pos.clone();
+          B.p1 = B.p0.clone().lerp(B.p2, .5).setY(.1); B.dur = .5; B.t = 0;
+          applyPose(B); return;
+        }
+        B.tucked = false;
         if (B.restSpot){
           const R = REST[B.restSpot.kind];
           r.position.copy(B.restSpot.pos); r.rotation.y = B.restSpot.yaw;
