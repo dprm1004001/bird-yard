@@ -73,6 +73,7 @@ Each place grows decor in stages as shop items are placed there. The stage is th
 - pond: the river's grass-green ground with blue-green tufts, a natural stone ring, lily pads, pink rock flowers, lotus at stage 5.
 - plaza: colour-only brick floor. Stages add a 2nd lamp, a facing bench, stone planters (short stems, big blooms), back planters with cube hedges, then a clock tower showing the real time. The layout is deliberately symmetric and man-made.
 - river (`riverDecor`) is a cool valley.
+  - The river plane keeps only 6% of its height jitter and sits at y .01, so no part dips under the grass disk (grass used to show through as patches).
   - 1+: green ground and grass on both banks.
   - 2+: big boulders rise on the far bank, in two stacks with a gap.
   - 3+: a small waterfall pours through the gap into a pool, with foam at its foot.

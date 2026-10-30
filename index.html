@@ -901,13 +901,15 @@ function buildRiver(rt){
   // a broad river crossing the whole view, deepest in the middle
   const river = mesh(skin(shape(new THREE.PlaneGeometry(11, 1.8, 11, 3).rotateX(-Math.PI/2), .2, 300),
     (c,x,y,z) => c.set('#a6d8ec').lerp(col('#6aaed3'), ss(.9, 0, Math.abs(z))), 300));
-  river.position.set(0, .004, -1.0); river.receiveShadow = true; g.add(river);
+  // keep only a whisper of height jitter so no part of the water dips under the grass disk
+  { const a = river.geometry.attributes.position; for (let i = 0; i < a.count; i++) a.setY(i, a.getY(i)*.06); river.geometry.computeVertexNormals(); }
+  river.position.set(0, .01, -1.0); river.receiveShadow = true; g.add(river);
   rt.waterMeshes = [river];
   // white streaks drifting downstream
   rt.ripples = [];
   for (let i = 0; i < 10; i++){
     const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI/2), rippleMat);
-    m.scale.set(.25 + rnd(i)*.3, 1, .04); m.position.set(-5 + rnd(i*3)*10, .007, -1.0 + (rnd(i*7) - .5)*1.2);
+    m.scale.set(.25 + rnd(i)*.3, 1, .04); m.position.set(-5 + rnd(i*3)*10, .018, -1.0 + (rnd(i*7) - .5)*1.2);
     m.userData.v = .3 + rnd(i*11)*.3; g.add(m); rt.ripples.push(m);
   }
   for (let i = 0; i < 16; i++){
@@ -920,7 +922,7 @@ function buildRiver(rt){
     r.position.set(-2.6 + i*1.1 + rnd(i)*.3, 0, -.02 - rnd(i*4)*.1); r.rotation.z = (rnd(i) - .5)*.3; g.add(r);
   }
   for (const [x, z] of [[-1.5,-1.0],[-.4,-1.25],[.8,-.85],[1.9,-1.1]])
-    rt.specials.push({kind:'water', pos:new THREE.Vector3(x, .004, z), yaw:Math.random()*6, occupant:null});
+    rt.specials.push({kind:'water', pos:new THREE.Vector3(x, .01, z), yaw:Math.random()*6, occupant:null});
   const slotPos = [];
   for (let i = 0; i < 9; i++){ const a = i*2.4, r = .04 + rnd(i*1.9)*.1; slotPos.push(new THREE.Vector3(Math.cos(a)*r, .36, Math.sin(a)*r)); }
   makeSource(rt, {x:-.5, z:.75, food:'seed', throwH:1.5, throwUp:1.7, slotPos, build:(bg, src) => {
@@ -2750,7 +2752,7 @@ function makeTowel(B){
 // somewhere on the river to float and cool off: a free floating spot near x, or a fresh patch of water
 function coolSpot(rt, x){
   const w = rt.specials.filter(s => s.kind === 'water' && !s.occupant).sort((a, b) => Math.abs(a.pos.x - x) - Math.abs(b.pos.x - x))[0];
-  return w || {kind:'water', pos:new THREE.Vector3(x + (Math.random() - .5)*.4, .004, -.6 - Math.random()*.6), yaw:Math.random()*6, occupant:null};
+  return w || {kind:'water', pos:new THREE.Vector3(x + (Math.random() - .5)*.4, .01, -.6 - Math.random()*.6), yaw:Math.random()*6, occupant:null};
 }
 // boiled red: scramble out of the spring and either fly straight onto the river or dash to its bank and hop in,
 // then float there, cooling slowly
