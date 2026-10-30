@@ -3830,9 +3830,10 @@ addEventListener('resize', resize);
 const clock = new THREE.Clock();
 // ---------- ambient sound per place: a looping bed that fades in while you're there and out when you leave ----------
 // Browsers only allow sound after the player's first tap, so nothing plays until then.
-const AMBIENT = {yard:{src:'sounds/yard-spring-noon.mp3', vol:.22}, pond:{src:'sounds/pond-spring.mp3', vol:.22}, plaza:{src:'sounds/plaza-town-square.mp3', vol:.22}, forest:{src:'sounds/forest-night-crickets.mp3', vol:.22}, island:{src:'sounds/sea-seagull.mp3', vol:.22},
+// beds sit at .15; the plaza's recording is quiet, so it gets .3
+const AMBIENT = {yard:{src:'sounds/yard-spring-noon.mp3', vol:.15}, pond:{src:'sounds/pond-spring.mp3', vol:.15}, plaza:{src:'sounds/plaza-town-square.mp3', vol:.3}, forest:{src:'sounds/forest-night-crickets.mp3', vol:.15}, island:{src:'sounds/sea-seagull.mp3', vol:.15},
   // a place can have several beds playing together: the river's stream and its birdsong
-  river:[{src:'sounds/river-forest-stream.mp3', vol:.22}, {src:'sounds/river-bird-chirp.mp3', vol:.22}]};
+  river:[{src:'sounds/river-forest-stream.mp3', vol:.15}, {src:'sounds/river-bird-chirp.mp3', vol:.15}]};
 const BEDS = Object.entries(AMBIENT).flatMap(([pid, v]) => [].concat(v).map((b, i) => ({...b, pid, key:i ? pid + i : pid})));
 // the speaker button under the camera turns every sound off and on; the choice is remembered on this device
 const MUTE_KEY = 'berry-yard-muted';
@@ -3861,7 +3862,7 @@ addEventListener('pointerdown', () => {
 }, {capture:true});
 // one-off calls layered over a place's bed: an owl hoots in the dark forest, very softly, after gaps of 8 s, 5 s, 13 s, then round again.
 // The clock starts over each time you arrive, and stops while muted, while the siren show runs, or before the first tap
-const CALLS = {forest:{src:'sounds/owl-hoot.mp3', vol:.08, gaps:[8, 5, 13]}};
+const CALLS = {forest:{src:'sounds/owl-hoot.mp3', vol:.055, gaps:[8, 5, 13]}};
 const calls = {};
 function updateCalls(dt){
   for (const pid in CALLS){
