@@ -52,7 +52,7 @@ The user alternates between two machines.
 
 ## Places and per-place decor
 
-Places, in order: `yard` 베리 마당, `pond` 작은 물가, `plaza` 광장 벤치, `river` 맑은 강가, `forest` 어두운 숲, `island` 바닷가 외딴섬.
+Places, in order: `yard` 베리 마당, `pond` 작은 연못 (renamed from 작은 물가 at the user's request), `plaza` 광장 벤치, `river` 맑은 강가, `forest` 어두운 숲, `island` 바닷가 외딴섬.
 
 The island (`buildIsland`):
 - It is a round sand island (`ISLAND_R`) with sea all around and one leaning palm tree. Foam rings swell out from the beach. Birds can float on the sea.
@@ -74,7 +74,7 @@ The island (`buildIsland`):
 - Its hidden object is the beach hut set (see Hidden objects).
 - Flamingo (`flamingo`) is the biggest bird: `SIZE` 1.2 makes up for the island's .85 scale. Its bill has a hard black tip (`tipFrom`). It idles on one leg (`oneLeg`), and after eating it usually wades to `rt.wadeSpots`, three spots in the surf off the beach. It stands there with one leg folded up (rest kind `wade`).
 - Pelican (`pelican`) uses the `pouch` beak part with a `pouchColor` throat pouch.
-- Ambient sound: while you're on the island, `sounds/sea-waves.mp3` (the user's file, 79 s) loops at volume .22 (`AMBIENT`, `updateAmbient`; the user asked for it a little quieter than .35). It fades in and out over about a second when you arrive or leave. Nothing plays before the first tap (`soundOK`); that first tap also unlocks the audio for iPhones. Other places can get a bed by adding an `AMBIENT` entry.
+- Ambient sound: while you're on the island, `sounds/sea-waves.mp3` (the user's file, 79 s) loops at volume .22 (`AMBIENT`, `updateAmbient`; the user asked for it a little quieter than .35). It fades in and out over about a second when you arrive or leave. Nothing plays before the first tap (`soundOK`); that first tap also unlocks the audio for iPhones. 작은 연못 (pond) has `sounds/pond-spring.mp3` (the user's file, 107 s) the same way, also at .22. Other places can get a bed by adding an `AMBIENT` entry.
 
 Each place grows decor in stages as shop items are placed there. The stage is the count of items in `S.items[pid]`, from 0 to 5.
 - yard: green ground (the same fresh grass greens as the river, `#78c266`/`#69b65c`/`#8bcf76`, at the user's request), grass, flowers blooming one by one, butterflies from stage 3.
@@ -113,7 +113,7 @@ Hidden objects (`HIDDEN`):
   - Hidden motion: a bird stands on the stump strumming a tiny guitar with its wing (`startGuitarist`, `makeGuitar`).
     - Every 10 s there is a 30% chance.
     - There is no sound yet; the user will add it later.
-- 작은 물가 (`pond`) has a picnic mat (`PICNIC`, `placePicnic`) in the grass in front of the bread basket. It's pale red and white checks, with a closed little basket and a plate holding one hotdog.
+- 작은 연못 (`pond`) has a picnic mat (`PICNIC`, `placePicnic`) in the grass in front of the bread basket. It's pale red and white checks, with a closed little basket and a plate holding one hotdog.
   - Birds sometimes peck at the hotdog (rest kind `hotdog`). Others sit side by side on the mat (rest kind `picnic`, 3 seats) holding a can of beer in a wing (`makeCan`).
   - Each sip (`picnicPose`, lifting the wing to the beak) reddens the face one step via an emissive head material (`setDrunk`, `drunkMats`, levels 1–3).
   - At level 3 the bird gets up (`getUp`) and staggers about, rolling and drifting.
