@@ -193,7 +193,7 @@ The user wants achievements tied to the encyclopedia: a place never opens with a
   - 과태료 10만원 (`smoke`, "흡연은 흡연구역에서만!"): tap or photograph the smoking pigeon.
   - 오모나세상에 (`kiss`, "조옿을 때다~"): tap or photograph the kissing couple.
   - 시원~허다 (`spring`, "거짓말! 뜨겁잖아!!"): tap or photograph a bird soaking in the hot spring, or one still red from it.
-  - 핼러윈 파티! (`party`, "야라라라 잇포즈츠 윳쿠리"): set off the pumpkin siren show.
+  - 핼러윈 파티! (`party`, "왜 그런 짓을 하는 거야?"): set off the pumpkin siren show.
   - 알로하오예 (`aloha`, "맛있는~ 포장마차 가득가득~"): tap or photograph a bird wearing a beach-hut outfit.
   - `spotBird` checks one bird for drunk, spring and aloha.
   - Finds are kept in `S.found` via `spot(kind)`. Actors are pickable (`userData.actor`, `A.act` names the moment). `spotInFrame` checks a photo for those heads on screen.
@@ -227,6 +227,8 @@ The user wants achievements tied to the encyclopedia: a place never opens with a
 - Achievement `fish` "첨벙! 물고기" is **secret** (`secret:true`). It shows as ??? with no condition until it's earned. It's earned on the first fish and pays 50 feathers (an `a.feathers` reward).
 
 ## Behaviour notes
+
+- Feather pace (the user asked for faster): a bird drops one on landing 55%, on each food eaten 35%, on leaving 60%, and while resting every `REST.feather`×.6 + 0–2.5 s.
 
 - Birds rest on perches and birdhouses. They also take special rests: floating on water (pond and river), loafing (식빵 굽기) on benches or logs, and in the yard's bowl.
 - Solid scenery registers circle footprints with `addObstacle`. Birds, food and poop are pushed out with `pushOut`.
