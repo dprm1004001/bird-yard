@@ -231,5 +231,6 @@ The user wants achievements tied to the encyclopedia: a place never opens with a
 - Feather pace (the user asked for faster): a bird drops one on landing 55%, on each food eaten 35%, on leaving 60%, and while resting every `REST.feather`×.6 + 0–2.5 s.
 
 - Birds rest on perches and birdhouses. They also take special rests: floating on water (pond and river), loafing (식빵 굽기) on benches or logs, and in the yard's bowl.
+- The spots tucked under bench seats (`under`) are for small birds only: `specialSpot(rt, B)` skips them for large-template birds, which clipped through the seat.
 - Solid scenery registers circle footprints with `addObstacle`. Birds, food and poop are pushed out with `pushOut`.
 - A bird that is stuck for about 1.2 s hops over the obstacle (`skipTo`). Herons, gulls, raptors and owls hop slowly.
