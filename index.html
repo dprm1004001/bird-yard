@@ -142,6 +142,7 @@ body[data-place="island"] .stats{color:#e3f3f6}
 
 .dexsec{font-family:var(--display);font-size:15px;color:var(--muted);margin:14px 0 8px}
 .dexsec:first-child{margin-top:0}
+.achnote{font-size:11.5px;line-height:1.5;color:var(--muted);margin:-4px 0 10px}
 .dex{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .card{border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;gap:4px;justify-items:center;text-align:center;background:var(--void)}
 .card img{width:100%;max-width:150px;aspect-ratio:1;object-fit:contain;border-radius:50%;background:radial-gradient(circle at 50% 55%,#e6e3db,rgba(230,227,219,0) 70%)}
@@ -3891,6 +3892,7 @@ function renderAch(){
     if (a.place !== group){
       group = a.place;
       const h = document.createElement('div'); h.className = 'dexsec'; h.textContent = PLACES[group]?.name || '히든 업적'; box.append(h);
+      if (!PLACES[group]){ const n = document.createElement('div'); n.className = 'achnote'; n.innerHTML = '특이한 행동을 하는 새가 있다면 클릭하거나 사진 찍어 보세요!<br>배경에도 숨은 효과가...?'; box.append(n); }
     }
     const v = Math.min(a.cur(), a.goal), ok = done(a.id), r = document.createElement('div');
     r.className = 'row' + (ok ? ' done' : '');
